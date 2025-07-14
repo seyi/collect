@@ -8,7 +8,6 @@ import android.view.LayoutInflater
 import android.widget.FrameLayout
 import org.odk.collect.androidshared.system.ContextUtils.getThemeAttributeValue
 import org.odk.collect.geo.GeoUtils.formatAccuracy
-import org.odk.collect.geo.R
 import org.odk.collect.geo.databinding.AccuracyStatusBinding
 
 internal class AccuracyStatusView(context: Context, attrs: AttributeSet?) :

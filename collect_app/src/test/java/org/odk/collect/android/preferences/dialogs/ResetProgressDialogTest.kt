@@ -9,7 +9,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.odk.collect.fragmentstest.FragmentScenarioLauncherRule
-import org.odk.collect.permissions.R
 import org.odk.collect.strings.localization.getLocalizedString
 
 @RunWith(AndroidJUnit4::class)

@@ -1,0 +1,29 @@
+class Routes {
+  static const String loginRoute = '/login';
+  static const String splashRoute = '/splashRoute';
+  static const String onboardingPageRoute = '/onboardingPageRoute';
+  static const String welcomeRoute = '/welcome';
+  static const String verifyOtp = '/verifyOtp';
+  static const String changePassword = '/changePassword';
+  static const String resetPassword = '/resetPassword';
+  static const String authWelcomeRoute = '/auth-welcome';
+  static const String signupRoute = '/signup';
+  static const String homeRoute = '/bottom_nav_page';
+  static const String mainHomeRoute = '/home';
+  static const String forgotPasswordRoute = '/forgot-password';
+  static const String forgotPasswordOTPRoute = '/forgot-password-otp';
+  static const String setNewPasswordRoute = '/set-new-password-route';
+  static const String forgotPasswordSuccessRoute = '/forgotPasswordSuccessRoute';
+  static const String oTPPageRoute = '/otp-page-route';
+  static const String profileRoute = '/profile-route';
+  static const String editProfileRoute = '/edit-profile-route';
+  static const String successPage = '/successPage';
+  static const String selectSubComponentRoute = '/select-sub-component-route';
+  static const String subComponentDashboardRoute = '/sub-component-dashboard-route';
+  static const String catchmentInfoRoute = '/catchment-info-route';
+  static const String activitiesInfoRoute = '/activities-info-route';
+  static const String activitySubComponentInfoRoute = 'activity-subcomponent-info-route';
+  static const String selectResultFrameworkRoute = 'select-result-framework-route';
+  static const String beneficiaryInfoRoute = 'beneficiary-info-route';
+  static const String polyPage = '/polyPage';
+}

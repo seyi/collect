@@ -1,0 +1,5 @@
+// Include the host app project.
+include(":collect_app")                                   // assumed existing content
+setBinding(new Binding([gradle: this]))           // new
+def filePath = settingsDir.parentFile.toString() + "/acresalmis_mobile_app/.android/include_flutter.groovy" // new
+apply from: filePath                              // new

@@ -10,7 +10,6 @@ import org.javarosa.form.api.FormEntryPrompt
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.odk.collect.android.R
 import org.odk.collect.android.support.MockFormEntryPromptBuilder
 import org.odk.collect.android.widgets.support.FormElementFixtures.selectChoice
 import org.odk.collect.android.widgets.support.FormElementFixtures.treeElement

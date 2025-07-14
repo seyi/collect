@@ -3,7 +3,6 @@ package org.odk.collect.android.widgets.items
 import org.javarosa.core.model.SelectChoice
 import org.javarosa.form.api.FormEntryPrompt
 import org.javarosa.xpath.parser.XPathSyntaxException
-import org.odk.collect.android.R
 import org.odk.collect.android.exception.ExternalDataException
 import org.odk.collect.android.widgets.QuestionWidget
 import org.odk.collect.android.widgets.interfaces.SelectChoiceLoader

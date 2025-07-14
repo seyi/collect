@@ -12,7 +12,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
-import org.odk.collect.android.R
 import org.odk.collect.android.support.FakeClickableMapFragment
 import org.odk.collect.android.support.TestDependencies
 import org.odk.collect.android.support.rules.CollectTestRule

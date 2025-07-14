@@ -10,6 +10,8 @@ public enum StorageSubdirectory {
     PROJECTS("projects"),
     SHARED_LAYERS("layers");
 
+
+
     private final String directoryName;
 
     StorageSubdirectory(String directoryName) {

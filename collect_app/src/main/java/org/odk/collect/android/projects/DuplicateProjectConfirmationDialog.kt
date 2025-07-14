@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.odk.collect.analytics.Analytics
-import org.odk.collect.android.R
 import org.odk.collect.android.analytics.AnalyticsEvents
 import org.odk.collect.android.projects.DuplicateProjectConfirmationKeys.MATCHING_PROJECT
 import org.odk.collect.android.projects.DuplicateProjectConfirmationKeys.SETTINGS_JSON

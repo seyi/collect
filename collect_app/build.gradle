@@ -83,7 +83,11 @@ android {
         versionName getVersionName()
         testInstrumentationRunner('androidx.test.runner.AndroidJUnitRunner')
         vectorDrawables.useSupportLibrary = true
-        archivesBaseName = 'ODK-Collect'
+        archivesBaseName = 'Acresal-Collect'
+        ndk {
+            // Filter for architectures supported by Flutter
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
+        }
     }
 
     signingConfigs {
@@ -231,6 +235,9 @@ configurations.all {
 }
 
 dependencies {
+    implementation libs.androidMaterial
+    implementation libs.activity
+    implementation libs.constraintlayout
     coreLibraryDesugaring libs.desugar
 
     implementation project(':shared')
@@ -268,6 +275,9 @@ dependencies {
     implementation project(':lists')
     implementation project(':web-page')
     implementation project(':db')
+
+
+
 
     if (getSecrets().getProperty('MAPBOX_DOWNLOADS_TOKEN', '') != '') {
         implementation project(':mapbox')
@@ -327,6 +337,9 @@ dependencies {
     // Dagger:
     implementation libs.dagger
     annotationProcessor libs.daggerCompiler
+
+    // CSV Parsing
+    implementation libs.univocityParsers
 
     // Needed for injection into Robolectric tests
     testAnnotationProcessor libs.daggerCompiler

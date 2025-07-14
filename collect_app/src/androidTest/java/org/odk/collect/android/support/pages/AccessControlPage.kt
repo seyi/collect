@@ -10,7 +10,6 @@ import androidx.test.espresso.matcher.ViewMatchers.withClassName
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import org.hamcrest.Matchers.endsWith
 import org.hamcrest.Matchers.not
-import org.odk.collect.android.R
 import org.odk.collect.android.support.matchers.CustomMatchers.withIndex
 
 class AccessControlPage : Page<AccessControlPage>() {

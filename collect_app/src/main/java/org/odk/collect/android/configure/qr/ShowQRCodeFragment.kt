@@ -23,7 +23,6 @@ import androidx.appcompat.widget.AppCompatCheckedTextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import org.odk.collect.android.R
 import org.odk.collect.android.databinding.ShowQrcodeFragmentBinding
 import org.odk.collect.android.injection.DaggerUtils
 import org.odk.collect.async.Scheduler

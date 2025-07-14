@@ -10,7 +10,6 @@ import org.hamcrest.CoreMatchers.nullValue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.odk.collect.android.R
 import org.odk.collect.android.fakes.FakePermissionsProvider
 import org.odk.collect.android.utilities.ApplicationConstants
 import org.odk.collect.android.widgets.support.FakeWaitingForDataRegistry

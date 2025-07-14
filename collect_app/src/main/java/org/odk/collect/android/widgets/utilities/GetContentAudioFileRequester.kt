@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.widget.Toast
 import org.javarosa.form.api.FormEntryPrompt
-import org.odk.collect.android.R
 import org.odk.collect.android.utilities.ApplicationConstants
 import org.odk.collect.androidshared.system.IntentLauncher
 

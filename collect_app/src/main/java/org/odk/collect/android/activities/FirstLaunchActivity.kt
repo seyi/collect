@@ -1,9 +1,7 @@
 package org.odk.collect.android.activities
 
 import android.os.Bundle
-import android.text.SpannableStringBuilder
 import androidx.activity.viewModels
-import androidx.core.text.color
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -17,7 +15,6 @@ import org.odk.collect.android.projects.ManualProjectCreatorDialog
 import org.odk.collect.android.projects.ProjectsDataService
 import org.odk.collect.android.projects.QrCodeProjectCreatorDialog
 import org.odk.collect.android.version.VersionInformation
-import org.odk.collect.androidshared.system.ContextUtils.getThemeAttributeValue
 import org.odk.collect.androidshared.ui.DialogFragmentUtils
 import org.odk.collect.async.Scheduler
 import org.odk.collect.material.MaterialProgressDialogFragment
@@ -44,10 +41,10 @@ class FirstLaunchActivity : LocalizedActivity() {
     @Inject
     lateinit var scheduler: Scheduler
 
-    private val viewModel: FirstLaunchViewModel by viewModels {
+    private val viewModel: ACFirstLaunchViewModel by viewModels {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return FirstLaunchViewModel(scheduler, projectsRepository, projectsDataService) as T
+                return ACFirstLaunchViewModel(scheduler, projectsRepository, projectsDataService) as T
             }
         }
     }
@@ -93,28 +90,27 @@ class FirstLaunchActivity : LocalizedActivity() {
             }
 
             appName.text = String.format(
-                "%s %s",
                 getString(org.odk.collect.strings.R.string.collect_app_name),
-                versionInformation.versionToDisplay
+               // versionInformation.versionToDisplay
             )
 
-            dontHaveServer.apply {
-                text = SpannableStringBuilder()
-                    .append(getString(org.odk.collect.strings.R.string.dont_have_project))
-                    .append(" ")
-                    .color(getThemeAttributeValue(context, com.google.android.material.R.attr.colorAccent)) {
-                        append(getString(org.odk.collect.strings.R.string.try_demo))
-                    }
-
-                setOnClickListener {
-                    viewModel.tryDemo()
-                }
-            }
+//            dontHaveServer.apply {
+//                text = SpannableStringBuilder()
+//                    .append(getString(org.odk.collect.strings.R.string.dont_have_project))
+//                    .append(" ")
+//                    .color(getThemeAttributeValue(context, com.google.android.material.R.attr.colorAccent)) {
+//                        append(getString(org.odk.collect.strings.R.string.try_demo))
+//                    }
+//
+//                setOnClickListener {
+//                    viewModel.tryDemo()
+//                } */
+//            }
         }
     }
 }
 
-private class FirstLaunchViewModel(
+private class ACFirstLaunchViewModel(
     private val scheduler: Scheduler,
     private val projectsRepository: ProjectsRepository,
     private val projectsDataService: ProjectsDataService

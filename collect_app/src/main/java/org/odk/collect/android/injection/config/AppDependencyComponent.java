@@ -3,6 +3,7 @@ package org.odk.collect.android.injection.config;
 import android.app.Application;
 
 import org.javarosa.core.reference.ReferenceManager;
+import org.odk.collect.android.activities.AC_FirstLaunchActivity;
 import org.odk.collect.android.activities.AboutActivity;
 import org.odk.collect.android.activities.AppListActivity;
 import org.odk.collect.android.activities.DeleteFormsActivity;
@@ -238,6 +239,8 @@ public interface AppDependencyComponent {
     void inject(QrCodeProjectCreatorDialog qrCodeProjectCreatorDialog);
 
     void inject(FirstLaunchActivity firstLaunchActivity);
+
+    void inject(AC_FirstLaunchActivity acFirstLaunchActivity);
 
     void inject(FormUriActivity formUriActivity);
 

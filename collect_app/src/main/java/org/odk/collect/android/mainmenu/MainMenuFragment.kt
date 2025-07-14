@@ -223,15 +223,21 @@ class MainMenuFragment(
     }
 
     private fun initAppName(binding: MainMenuBinding) {
+//        binding.appName.text = String.format(
+//            "%s %s",
+//            getString(string.collect_app_name),
+//            mainMenuViewModel.version
+//        )
+
         binding.appName.text = String.format(
-            "%s %s",
             getString(string.collect_app_name),
-            mainMenuViewModel.version
         )
+
 
         val versionSHA = mainMenuViewModel.versionCommitDescription
         if (versionSHA != null) {
-            binding.versionSha.text = versionSHA
+           // binding.versionSha.text = versionSHA
+            binding.versionSha.text  = "1.0.1"
         } else {
             binding.versionSha.visibility = View.GONE
         }

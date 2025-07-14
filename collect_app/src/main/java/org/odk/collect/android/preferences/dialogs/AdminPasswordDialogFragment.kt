@@ -10,7 +10,6 @@ import android.widget.CompoundButton
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import org.odk.collect.android.R
 import org.odk.collect.android.databinding.AdminPasswordDialogLayoutBinding
 import org.odk.collect.android.injection.DaggerUtils
 import org.odk.collect.android.preferences.ProjectPreferencesViewModel

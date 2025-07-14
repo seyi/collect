@@ -9,7 +9,6 @@ import org.hamcrest.Matchers.equalTo
 import org.javarosa.core.model.data.GeoPointData
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.odk.collect.android.R
 import org.odk.collect.android.widgets.support.GeoWidgetHelpers
 import org.odk.collect.android.widgets.utilities.GeoWidgetUtils.convertCoordinatesIntoDegreeFormat
 import org.odk.collect.android.widgets.utilities.GeoWidgetUtils.floor

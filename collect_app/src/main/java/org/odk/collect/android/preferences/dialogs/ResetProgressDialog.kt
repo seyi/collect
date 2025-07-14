@@ -1,7 +1,6 @@
 package org.odk.collect.android.preferences.dialogs
 
 import android.content.Context
-import org.odk.collect.android.R
 import org.odk.collect.material.MaterialProgressDialogFragment
 import org.odk.collect.strings.localization.getLocalizedString
 

@@ -84,13 +84,15 @@ class StoragePathProvider(
     }
 
     override fun create(projectId: String): StoragePaths {
-        return StoragePaths(getProjectRootDirPath(projectId),
+        return StoragePaths(
+            getProjectRootDirPath(projectId),
             getOdkDirPath(StorageSubdirectory.FORMS, projectId),
             getOdkDirPath(StorageSubdirectory.INSTANCES, projectId),
             getOdkDirPath(StorageSubdirectory.CACHE, projectId),
             getOdkDirPath(StorageSubdirectory.METADATA, projectId),
             getOdkDirPath(StorageSubdirectory.SETTINGS, projectId),
             getOdkDirPath(StorageSubdirectory.LAYERS, projectId)
+
         )
     }
 }

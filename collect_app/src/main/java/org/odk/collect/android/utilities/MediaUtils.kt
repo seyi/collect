@@ -17,7 +17,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import org.odk.collect.android.BuildConfig
-import org.odk.collect.android.R
 import org.odk.collect.androidshared.system.IntentLauncher
 import org.odk.collect.androidshared.ui.ToastUtils
 import timber.log.Timber

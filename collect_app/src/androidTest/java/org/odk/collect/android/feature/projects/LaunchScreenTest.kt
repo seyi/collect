@@ -5,7 +5,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
-import org.odk.collect.android.R
 import org.odk.collect.android.injection.config.AppDependencyModule
 import org.odk.collect.android.support.StubBarcodeViewDecoder
 import org.odk.collect.android.support.pages.MainMenuPage

@@ -5,7 +5,6 @@ import android.content.Intent
 import android.provider.MediaStore
 import android.widget.Toast
 import org.javarosa.form.api.FormEntryPrompt
-import org.odk.collect.android.R
 import org.odk.collect.android.utilities.ApplicationConstants
 import org.odk.collect.androidshared.system.IntentLauncher
 import org.odk.collect.permissions.PermissionListener
