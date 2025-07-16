@@ -12,8 +12,18 @@ class CurrentProjectViewModel(
     private val projectsDataService: ProjectsDataService
 ) : ViewModel() {
 
-    private val _currentProject by lazy { MutableNonNullLiveData(projectsDataService.getCurrentProject()) }
-    val currentProject: NonNullLiveData<Project.Saved> by lazy { _currentProject }
+    private val _currentProject by lazy {
+
+        //MutableNonNullLiveData(projectsDataService.getCurrentProject())
+        val project  = projectsDataService.getCurrentProject()
+        val updatedProject = project.copy(icon = "AC", color = "#2E7D32")
+        MutableNonNullLiveData(updatedProject)
+
+    }
+
+    val currentProject: NonNullLiveData<Project.Saved> by lazy {
+
+        _currentProject }
 
     fun setCurrentProject(project: Project.Saved) {
         Analytics.log(AnalyticsEvents.SWITCH_PROJECT)
@@ -23,7 +33,11 @@ class CurrentProjectViewModel(
 
     fun refresh() {
         if (currentProject.value != projectsDataService.getCurrentProject()) {
-            _currentProject.value = projectsDataService.getCurrentProject()
+           // _currentProject.value = projectsDataService.getCurrentProject()
+            val p = projectsDataService.getCurrentProject()
+            val updatedp = p.copy(icon = "AC" , color = "#2E7D32")
+            _currentProject.value = updatedp
+
         }
     }
 

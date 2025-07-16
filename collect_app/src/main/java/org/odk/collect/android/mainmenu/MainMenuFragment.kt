@@ -71,7 +71,8 @@ class MainMenuFragment(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         currentProjectViewModel.currentProject.observe(viewLifecycleOwner) { (_, name): Project.Saved ->
             requireActivity().invalidateOptionsMenu()
-            requireActivity().title = name
+           // requireActivity().title =name
+            requireActivity().title = "ACReSAL GIS Survey"
         }
 
         val binding = MainMenuBinding.bind(view)
@@ -119,9 +120,10 @@ class MainMenuFragment(
 
     override fun onPrepareOptionsMenu(menu: Menu) {
         val projectsMenuItem = menu.findItem(org.odk.collect.android.R.id.projects)
+
         (projectsMenuItem.actionView as ProjectIconView).apply {
             project = currentProjectViewModel.currentProject.value
-            setOnClickListener { onOptionsItemSelected(projectsMenuItem) }
+          //  setOnClickListener { onOptionsItemSelected(projectsMenuItem) }
             contentDescription = getString(string.projects)
         }
     }
