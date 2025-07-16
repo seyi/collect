@@ -61,6 +61,7 @@ import org.odk.collect.android.preferences.screens.ProjectPreferencesActivity;
 import org.odk.collect.android.preferences.screens.ProjectPreferencesFragment;
 import org.odk.collect.android.preferences.screens.ServerPreferencesFragment;
 import org.odk.collect.android.preferences.screens.UserInterfacePreferencesFragment;
+import org.odk.collect.android.projects.ACManualProjectCreatorDialog;
 import org.odk.collect.android.projects.ManualProjectCreatorDialog;
 import org.odk.collect.android.projects.ProjectResetter;
 import org.odk.collect.android.projects.ProjectSettingsDialog;
@@ -235,6 +236,8 @@ public interface AppDependencyComponent {
     void inject(ProjectSettingsDialog projectSettingsDialog);
 
     void inject(ManualProjectCreatorDialog manualProjectCreatorDialog);
+
+    void inject(ACManualProjectCreatorDialog acManualProjectCreatorDialog);
 
     void inject(QrCodeProjectCreatorDialog qrCodeProjectCreatorDialog);
 

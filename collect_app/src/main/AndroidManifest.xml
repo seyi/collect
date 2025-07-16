@@ -80,6 +80,9 @@
         android:theme="@style/Theme.Collect"
         android:usesCleartextTraffic="true">
         <activity
+            android:name=".projects.ACManualProjectCreator"
+            android:exported="false" />
+        <activity
             android:name=".activities.AC_FirstLaunchActivity"
             android:exported="false" />
 
@@ -93,7 +96,7 @@
                 android:resource="@xml/provider_paths" />
         </provider>
 
-        <activity android:name=".activities.FirstLaunchActivity"></activity>
+        <activity android:name=".activities.FirstLaunchActivity" />
         <activity
             android:name=".mainmenu.MainMenuActivity"
             android:exported="true"
@@ -261,7 +264,7 @@
         <activity
             android:name="org.odk.collect.selfiecamera.CaptureSelfieActivity"
             android:theme="@style/Theme.Collect"
-            tools:replace="android:theme"></activity> <!-- Configure this key by setting GOOGLE_MAPS_API_KEY in secrets.properties. -->
+            tools:replace="android:theme" /> <!-- Configure this key by setting GOOGLE_MAPS_API_KEY in secrets.properties. -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/GOOGLE_MAPS_API_KEY" />
@@ -337,7 +340,7 @@
             android:name=".activities.FormEntryActivity"
             android:exported="true"
             android:targetActivity=".external.FormUriActivity"
-            tools:ignore="AppLinkUrlError"></activity-alias>
+            tools:ignore="AppLinkUrlError" />
     </application>
 
 </manifest>
