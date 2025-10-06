@@ -192,17 +192,15 @@ class LoginActivity : AppCompatActivity() {
 
     private fun navigateToApp() {
         // Check if project is already configured, if so skip configuration screen
-        val projectsDataService = (application as? android.app.Application)?.let {
-            org.odk.collect.android.injection.DaggerUtils.getComponent(this).projectsDataService()
-        }
+        try {
+            val projectsDataService = org.odk.collect.android.injection.DaggerUtils.getComponent(this).currentProjectProvider()
+            val currentProject = projectsDataService.getCurrentProject()
 
-        val hasProject = projectsDataService?.getCurrentProject() != null
-
-        if (hasProject) {
             // Project already exists, go directly to MainMenuActivity
             ActivityUtils.startActivityAndCloseAllOthers(this, MainMenuActivity::class.java)
-        } else {
+        } catch (e: Exception) {
             // No project yet, go to configuration screen which will auto-configure
+            Timber.d("No project found, navigating to auto-configure: ${e.message}")
             ActivityUtils.startActivityAndCloseAllOthers(this, AC_FirstLaunchActivity::class.java)
         }
     }

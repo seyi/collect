@@ -19,7 +19,7 @@ class AzureAuthService(private val context: Context) {
 
     companion object {
         // Default Azure Function URL - can be overridden via configuration
-        private const val DEFAULT_AZURE_FUNCTION_URL = "https://your-function-app.azurewebsites.net/api/login"
+        private const val DEFAULT_AZURE_FUNCTION_URL = "https://acresalgisfunctionapp.azurewebsites.net/api/login"
         private const val PREFS_NAME = "AzureAuthConfig"
         private const val KEY_FUNCTION_URL = "azure_function_url"
 
@@ -62,8 +62,9 @@ class AzureAuthService(private val context: Context) {
                 Timber.d("Attempting authentication for user: $username")
 
                 // Build JSON request body
+                // Note: Azure Function expects "email" field, not "username"
                 val jsonBody = JSONObject().apply {
-                    put("username", username)
+                    put("email", username)
                     put("password", password)
                 }.toString()
 
@@ -92,15 +93,18 @@ class AzureAuthService(private val context: Context) {
                             // Parse successful response
                             try {
                                 val jsonResponse = JSONObject(responseBody)
-                                val success = jsonResponse.optBoolean("success", false)
 
-                                if (success) {
+                                // Azure Function returns: { message, token, user: { id, email, displayName, role, state } }
+                                val token = jsonResponse.optString("token", "")
+                                val userObj = jsonResponse.optJSONObject("user")
+
+                                if (token.isNotEmpty() && userObj != null) {
                                     val userData = UserData(
-                                        username = jsonResponse.optString("username", username),
-                                        userId = jsonResponse.optString("userId", ""),
-                                        email = jsonResponse.optString("email", ""),
-                                        displayName = jsonResponse.optString("displayName", username),
-                                        token = jsonResponse.optString("token", "")
+                                        username = userObj.optString("email", username),
+                                        userId = userObj.optString("id", ""),
+                                        email = userObj.optString("email", ""),
+                                        displayName = userObj.optString("displayName", username),
+                                        token = token
                                     )
 
                                     Timber.d("Authentication successful for user: ${userData.username}")
