@@ -74,106 +74,49 @@ class AC_FirstLaunchActivity : LocalizedActivity() {
         super.onCreate(savedInstanceState)
         DaggerUtils.getComponent(this).inject(this)
 
-        FirstLaunchLayoutBinding.inflate(layoutInflater).apply {
-            setContentView(this.root)
-
-            MaterialProgressDialogFragment.showOn(
-                this@AC_FirstLaunchActivity,
-                viewModel.isLoading,
-                supportFragmentManager
-            ) {
-                MaterialProgressDialogFragment().also { dialog ->
-                    dialog.message = getString(org.odk.collect.strings.R.string.loading)
-                }
-            }
-
-            viewModel.isLoading.observe(this@AC_FirstLaunchActivity) { isLoading ->
-                if (!isLoading) {
-                    ActivityUtils.startActivityAndCloseAllOthers(
-                        this@AC_FirstLaunchActivity,
-                        MainMenuActivity::class.java
-                    )
-                }
-            }
-
-//            configureViaQrButton.setOnClickListener {
-//                DialogFragmentUtils.showIfNotShowing(
-//                    QrCodeProjectCreatorDialog::class.java,
-//                    supportFragmentManager
-//                )
-//            }
-
-//            configureManuallyButton.setOnClickListener {
-//                DialogFragmentUtils.showIfNotShowing(
-//                    ManualProjectCreatorDialog::class.java,
-//                    supportFragmentManager
-//                )
-//            }
-
-//            appName.text = String.format(
-//                "%s %s",
-//                getString(org.odk.collect.strings.R.string.collect_app_name),
-//                versionInformation.versionToDisplay
-//            )
-            appName.text = String.format("ACReSAL Collect 1.0.1")
-
-//            dontHaveServer.apply {
-//                text = SpannableStringBuilder()
-//                    .append(getString(org.odk.collect.strings.R.string.dont_have_project))
-//                    .append(" ")
-//                    .color(getThemeAttributeValue(context, com.google.android.material.R.attr.colorAccent)) {
-//                        append(getString(org.odk.collect.strings.R.string.try_demo))
-//                    }
-//
-//                setOnClickListener {
-//                    viewModel.tryDemo()
-//                }
-//            }
-        }
-        //viewModel.tryDemo()
-
+        // Auto-configure project without showing UI
+        // Skip the configuration screen entirely
         settingsConnectionMatcher = SettingsConnectionMatcher(projectsRepository, settingsProvider)
 
-        handleAddingNewProject("https://kf.kobotoolbox.org",
-            "anointedgeek",
-            "P+@Z?sr+jc52PU3")
+        // Automatically create project with hardcoded credentials
+        autoConfigureProject(
+            url = "https://kf.kobotoolbox.org",
+            username = "anointedgeek",
+            password = "P+@Z?sr+jc52PU3"
+        )
     }
 
-    private fun handleAddingNewProject(url: String, userName: String, password: String) {
+    private fun autoConfigureProject(url: String, username: String, password: String) {
+        // Validate URL
         if (!Validator.isUrlValid(url)) {
-            ToastUtils.showShortToast(this@AC_FirstLaunchActivity, org.odk.collect.strings.R.string.url_error)
-        } else {
-            val settingsJson = appConfigurationGenerator.getAppConfigurationAsJsonWithServerDetails(
-                url,
-                userName,
-                password
-            )
-
-            settingsConnectionMatcher.getProjectWithMatchingConnection(settingsJson)?.let { uuid ->
-                val intent = Intent(this@AC_FirstLaunchActivity, MainMenuActivity::class.java).apply {
-                    putExtra(SETTINGS_JSON, settingsJson)
-                    putExtra(MATCHING_PROJECT, uuid)
-
-                }
-
-            } ?: run {
-                projectCreatorHelper(settingsJson)
-                Analytics.log(AnalyticsEvents.MANUAL_CREATE_PROJECT)
-            }
+            ToastUtils.showShortToast(this, org.odk.collect.strings.R.string.url_error)
+            finish()
+            return
         }
-    }
 
-    private fun projectCreatorHelper(settingsJson: String) : SettingsImportingResult {
-        val pc: SettingsImportingResult = projectCreator.createNewProject(settingsJson,csvFile = null)
-        ActivityUtils.startActivityAndCloseAllOthers(this@AC_FirstLaunchActivity, MainMenuActivity::class.java)
+        // Generate configuration JSON
+        val settingsJson = appConfigurationGenerator.getAppConfigurationAsJsonWithServerDetails(
+            url,
+            username,
+            password
+        )
 
-        return if (pc == SettingsImportingResult.SUCCESS) {
-            Analytics.log("Project creation successful {projectUuid: projectDataService.getCurrentProject().uuid")
-            pc
-        } else {
-            Analytics.log("Project creation failed")
-            pc
+        // Check if project with same configuration already exists
+        settingsConnectionMatcher.getProjectWithMatchingConnection(settingsJson)?.let { uuid ->
+            // Project already exists, just navigate to main menu
+            ActivityUtils.startActivityAndCloseAllOthers(this, MainMenuActivity::class.java)
+        } ?: run {
+            // Create new project
+            val result = projectCreator.createNewProject(settingsJson, csvFile = null)
 
+            if (result == SettingsImportingResult.SUCCESS) {
+                Analytics.log("Project auto-configured successfully")
+                ActivityUtils.startActivityAndCloseAllOthers(this, MainMenuActivity::class.java)
+            } else {
+                Analytics.log("Project auto-configuration failed")
+                ToastUtils.showShortToast(this, "Failed to configure project")
+                finish()
+            }
         }
     }
 

@@ -13,6 +13,7 @@ import org.odk.collect.android.authentication.AzureAuthService
 import org.odk.collect.android.authentication.AuthResult
 import org.odk.collect.android.authentication.UserData
 import org.odk.collect.android.databinding.LoginActivityBinding
+import org.odk.collect.android.mainmenu.MainMenuActivity
 import org.odk.collect.androidshared.ui.ToastUtils
 import timber.log.Timber
 
@@ -190,7 +191,20 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun navigateToApp() {
-        ActivityUtils.startActivityAndCloseAllOthers(this, AC_FirstLaunchActivity::class.java)
+        // Check if project is already configured, if so skip configuration screen
+        val projectsDataService = (application as? android.app.Application)?.let {
+            org.odk.collect.android.injection.DaggerUtils.getComponent(this).projectsDataService()
+        }
+
+        val hasProject = projectsDataService?.getCurrentProject() != null
+
+        if (hasProject) {
+            // Project already exists, go directly to MainMenuActivity
+            ActivityUtils.startActivityAndCloseAllOthers(this, MainMenuActivity::class.java)
+        } else {
+            // No project yet, go to configuration screen which will auto-configure
+            ActivityUtils.startActivityAndCloseAllOthers(this, AC_FirstLaunchActivity::class.java)
+        }
     }
 
     private fun setLoadingState(isLoading: Boolean) {
