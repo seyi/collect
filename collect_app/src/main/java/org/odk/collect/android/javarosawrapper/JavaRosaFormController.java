@@ -98,7 +98,7 @@ public class JavaRosaFormController implements FormController {
     private final File mediaFolder;
     @Nullable
     private File instanceFile;
-    private final FormEntryController formEntryController;
+    private final FormEntryController  formEntryController;
     private FormIndex indexWaitingForData;
 
     public JavaRosaFormController(File mediaFolder, FormEntryController fec, File instanceFile) {

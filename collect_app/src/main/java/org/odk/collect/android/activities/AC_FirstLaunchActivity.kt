@@ -164,7 +164,7 @@ class AC_FirstLaunchActivity : LocalizedActivity() {
     }
 
     private fun projectCreatorHelper(settingsJson: String) : SettingsImportingResult {
-        val pc: SettingsImportingResult = projectCreator.createNewProject(settingsJson)
+        val pc: SettingsImportingResult = projectCreator.createNewProject(settingsJson,csvFile = null)
         ActivityUtils.startActivityAndCloseAllOthers(this@AC_FirstLaunchActivity, MainMenuActivity::class.java)
 
         return if (pc == SettingsImportingResult.SUCCESS) {

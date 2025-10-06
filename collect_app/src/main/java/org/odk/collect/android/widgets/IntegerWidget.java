@@ -34,6 +34,7 @@ public class IntegerWidget extends StringWidget {
         boolean useThousandSeparator = Appearances.useThousandSeparator(questionDetails.getPrompt());
         Integer answer = StringWidgetUtils.getIntegerAnswerValueFromIAnswerData(questionDetails.getPrompt().getAnswerValue());
         widgetAnswerText.setIntegerType(useThousandSeparator, answer);
+        //widgetAnswerText.setIntegerType(useThousandSeparator, 12345);
     }
 
     @Override

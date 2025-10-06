@@ -129,7 +129,7 @@ class ManualProjectCreatorDialog :
     }
 
     override fun createProject(settingsJson: String) {
-        projectCreator.createNewProject(settingsJson)
+        projectCreator.createNewProject(settingsJson,csvFile = null)
         ActivityUtils.startActivityAndCloseAllOthers(activity, MainMenuActivity::class.java)
         ToastUtils.showLongToast(
             requireContext(),

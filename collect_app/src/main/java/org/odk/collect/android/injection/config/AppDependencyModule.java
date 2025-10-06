@@ -134,6 +134,7 @@ import org.odk.collect.settings.keys.AppConfigurationKeys;
 import org.odk.collect.settings.keys.MetaKeys;
 import org.odk.collect.settings.keys.ProjectKeys;
 import org.odk.collect.shared.strings.UUIDGenerator;
+import org.odk.collect.utilities.CSVParser;
 import org.odk.collect.utilities.UserAgentProvider;
 import org.odk.collect.webpage.ExternalWebPageHelper;
 
@@ -399,6 +400,11 @@ public class AppDependencyModule {
     }
 
     @Provides
+    public CSVParser providesCSVParser() {
+        return new CSVParser();
+    }
+
+    @Provides
     @Singleton
     public ProjectsRepository providesProjectsRepository(UUIDGenerator uuidGenerator, Gson gson, SettingsProvider settingsProvider) {
         return new SharedPreferencesProjectsRepository(uuidGenerator, gson, settingsProvider.getMetaSettings(), MetaKeys.KEY_PROJECTS);
@@ -406,8 +412,12 @@ public class AppDependencyModule {
 
     @Provides
     public ProjectCreator providesProjectCreator(ProjectsRepository projectsRepository, ProjectsDataService projectsDataService,
-                                                 ODKAppSettingsImporter settingsImporter, SettingsProvider settingsProvider) {
-        return new ProjectCreator(projectsRepository, projectsDataService, settingsImporter, settingsProvider);
+                                                 ODKAppSettingsImporter settingsImporter, SettingsProvider settingsProvider,CSVParser csvParser) {
+        return new ProjectCreator(projectsRepository,
+                                  projectsDataService,
+                                  settingsImporter,
+                                  settingsProvider,
+                                  csvParser);
     }
 
     @Provides

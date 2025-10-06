@@ -18,6 +18,7 @@ import static org.odk.collect.android.analytics.AnalyticsEvents.ENCRYPT_SUBMISSI
 import static org.odk.collect.strings.localization.LocalizedApplicationKt.getLocalizedString;
 
 import android.content.ContentValues;
+import android.content.Context;
 import android.net.Uri;
 import android.util.Pair;
 
@@ -86,6 +87,7 @@ public class SaveFormToDisk {
     private final ArrayList<String> tempFiles;
     private final String currentProjectId;
     private final EntitiesRepository entitiesRepository;
+    private final Context context; // Added context field
 
     public static final int SAVED = 500;
     public static final int SAVE_ERROR = 501;
@@ -93,7 +95,7 @@ public class SaveFormToDisk {
     public static final int ENCRYPTION_ERROR = 505;
 
     public SaveFormToDisk(FormController formController, MediaUtils mediaUtils, boolean saveAndExit, boolean shouldFinalize, String updatedName,
-                          Uri uri, ArrayList<String> tempFiles, String currentProjectId, EntitiesRepository entitiesRepository,  InstancesRepository instancesRepository) {
+                          Uri uri, ArrayList<String> tempFiles, String currentProjectId, EntitiesRepository entitiesRepository, InstancesRepository instancesRepository, Context context) {
         this.formController = formController;
         this.mediaUtils = mediaUtils;
         this.uri = uri;
@@ -104,6 +106,7 @@ public class SaveFormToDisk {
         this.currentProjectId = currentProjectId;
         this.entitiesRepository = entitiesRepository;
         this.instancesRepository = instancesRepository;
+        this.context = context; // Store the context
     }
 
     @Nullable
@@ -129,7 +132,7 @@ public class SaveFormToDisk {
 
         if (shouldFinalize) {
             Instance instance = updateInstanceDatabase(true, true, validationResult);
-            FormEntryUseCases.finalizeFormController(instance, formController, instancesRepository, entitiesRepository);
+            FormEntryUseCases.finalizeFormController(instance, formController, instancesRepository, entitiesRepository, context); // Pass context here
         }
 
         // close all open databases of external data.

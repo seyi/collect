@@ -289,7 +289,7 @@ class QrCodeProjectCreatorDialog :
     }
 
     override fun createProject(settingsJson: String) {
-        when (projectCreator.createNewProject(settingsJson)) {
+        when (projectCreator.createNewProject(settingsJson,csvFile = null)) {
             SettingsImportingResult.SUCCESS -> {
                 Analytics.log(AnalyticsEvents.QR_CREATE_PROJECT)
 

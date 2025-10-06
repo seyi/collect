@@ -117,7 +117,7 @@ class ManualProjectCreatorDialogTest {
         }
 
         CollectHelpers.overrideAppDependencyModule(object : AppDependencyModule() {
-            override fun providesProjectCreator(
+            fun providesProjectCreator(
                 projectsRepository: ProjectsRepository,
                 projectsDataService: ProjectsDataService,
                 settingsImporter: ODKAppSettingsImporter,
@@ -145,7 +145,7 @@ class ManualProjectCreatorDialogTest {
             onView(withHint(org.odk.collect.strings.R.string.password)).inRoot(isDialog()).perform(replaceText("1234"))
 
             onView(withText(org.odk.collect.strings.R.string.add)).inRoot(isDialog()).perform(click())
-            verify(projectCreator).createNewProject("{\"general\":{\"server_url\":\"https:\\/\\/my-server.com\",\"username\":\"adam\",\"password\":\"1234\"},\"admin\":{},\"project\":{}}")
+            verify(projectCreator).createNewProject("{\"general\":{\"server_url\":\"https:\\/\\/my-server.com\",\"username\":\"adam\",\"password\":\"1234\"},\"admin\":{},\"project\":{}}",null)
         }
     }
 

@@ -1,6 +1,7 @@
 package org.odk.collect.android.views
 
 import android.content.Context
+import android.graphics.Color
 import android.text.Editable
 import android.text.InputFilter
 import android.text.InputFilter.LengthFilter
@@ -44,7 +45,11 @@ class WidgetAnswerText(context: Context, attrs: AttributeSet?) : FrameLayout(con
         binding.editText.setHorizontallyScrolling(false)
         binding.editText.isSingleLine = false
 
-        updateState(readOnly)
+//        updateState(readOnly)
+        // TODO: If reading from CSV set true
+        //updateState(true)
+        updateStateWithPost(readOnly)
+
 
         if (numberOfRows != null && numberOfRows > 0) {
             binding.editText.minLines = numberOfRows
@@ -65,14 +70,42 @@ class WidgetAnswerText(context: Context, attrs: AttributeSet?) : FrameLayout(con
         }
     }
 
-    fun updateState(readOnly: Boolean) {
+    fun updateStateWithPost(readOnly: Boolean) {
         binding.root.visibility = VISIBLE
         if (readOnly) {
             binding.textInputLayout.visibility = GONE
             binding.textView.visibility = VISIBLE
+            binding.textView.setBackgroundColor(Color.LTGRAY)
+
+
         } else {
             binding.textInputLayout.visibility = VISIBLE
             binding.textView.visibility = GONE
+        }
+        //Force redraw of the view
+        binding.root.invalidate()
+        binding.root.requestLayout()
+    }
+
+    fun updateState(readOnly: Boolean) {
+        binding.root.post {
+            binding.root.visibility = VISIBLE
+            if (readOnly) {
+                binding.textInputLayout.visibility = GONE
+                binding.textView.visibility = VISIBLE
+                binding.textView.setBackgroundColor(Color.GRAY)
+
+                // Clear focus and hide the soft keyboard
+                binding.editText.clearFocus()
+                SoftKeyboardController.hideSoftKeyboard(binding.editText)
+
+                // Force redraw
+                binding.textView.invalidate()
+                binding.textView.requestLayout()
+            } else {
+                binding.textInputLayout.visibility = VISIBLE
+                binding.textView.visibility = GONE
+            }
         }
     }
 
@@ -147,14 +180,17 @@ class WidgetAnswerText(context: Context, attrs: AttributeSet?) : FrameLayout(con
 
     fun setAnswer(answer: String?) {
         binding.editText.setText(answer)
-        binding.textView.text = binding.editText.text
+        //binding.textView.text = binding.editText.text
+        binding.textView.text = answer
         Selection.setSelection(binding.editText.text, binding.editText.text.toString().length)
 
-        if (answer == null && !isEditableState()) {
+       if (answer == null && !isEditableState()) {
             binding.root.visibility = GONE
         } else {
             binding.root.visibility = VISIBLE
         }
+        binding.root.invalidate()
+        binding.root.requestLayout()
     }
 
     fun clearAnswer() {

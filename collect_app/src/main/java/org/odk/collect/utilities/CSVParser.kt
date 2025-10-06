@@ -2,6 +2,7 @@ package org.odk.collect.utilities
 
 import com.univocity.parsers.csv.CsvParser
 import com.univocity.parsers.csv.CsvParserSettings
+import java.io.File
 import java.io.InputStream
 import java.io.InputStreamReader
 
@@ -62,5 +63,12 @@ class CSVParser {
         val allRows = parser.parseAll(InputStreamReader(inputStream))
 
         return allRows.map { row -> row.toList() }
+    }
+
+    fun parse(csvFile: File): Any {
+        val inputStream = csvFile.inputStream()
+        return parseCsvWithHeaders(inputStream)
+
+
     }
 }

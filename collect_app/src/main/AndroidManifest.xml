@@ -97,6 +97,7 @@
         </provider>
 
         <activity android:name=".activities.FirstLaunchActivity" />
+        <activity android:name=".activities.LoginActivity" />
         <activity
             android:name=".mainmenu.MainMenuActivity"
             android:exported="true"

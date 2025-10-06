@@ -112,6 +112,7 @@ public class FormSaveViewModel extends ViewModel implements MaterialProgressDial
         this.savepointsRepository = savepointsRepository;
         this.instancesDataService = instancesDataService;
 
+
         if (stateHandle.get(ORIGINAL_FILES) != null) {
             originalFiles = stateHandle.get(ORIGINAL_FILES);
         }

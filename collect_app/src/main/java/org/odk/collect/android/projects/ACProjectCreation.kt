@@ -42,7 +42,7 @@ class ACProjectCreation {
     }
 
     private fun projectCreatorHelper(settingsJson: String) : SettingsImportingResult {
-        val pc: SettingsImportingResult = projectCreator.createNewProject(settingsJson)
+        val pc: SettingsImportingResult = projectCreator.createNewProject(settingsJson,csvFile = null)
 
         return if (pc == SettingsImportingResult.SUCCESS) {
             Analytics.log("Project creation successful {projectUuid: projectDataService.getCurrentProject().uuid")

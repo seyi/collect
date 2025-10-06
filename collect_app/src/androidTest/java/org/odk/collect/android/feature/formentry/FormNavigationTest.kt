@@ -25,7 +25,8 @@ import org.odk.collect.android.support.pages.ProjectSettingsPage
 import org.odk.collect.android.support.rules.CollectTestRule
 import org.odk.collect.android.support.rules.TestRuleChain
 
-class FormNavigationTest {
+class
+FormNavigationTest {
     var rule = CollectTestRule()
 
     @get:Rule

@@ -39,7 +39,7 @@ import org.odk.collect.settings.SettingsProvider
 import java.util.function.BiConsumer
 
 class FormEntryViewModelFactory(
-    owner: SavedStateRegistryOwner,
+    private val owner: SavedStateRegistryOwner,
     private val mode: String?,
     private val sessionId: String,
     private val scheduler: Scheduler,
@@ -83,7 +83,7 @@ class FormEntryViewModelFactory(
                 FormSaveViewModel(
                     handle,
                     System::currentTimeMillis,
-                    DiskFormSaver(),
+                    DiskFormSaver(owner as android.content.Context), // Pass context to DiskFormSaver
                     mediaUtils,
                     scheduler,
                     audioRecorder,

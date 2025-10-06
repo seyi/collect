@@ -1,5 +1,6 @@
 package org.odk.collect.android.formentry.saving;
 
+import android.content.Context;
 import android.net.Uri;
 
 import org.odk.collect.android.javarosawrapper.FormController;
@@ -13,11 +14,23 @@ import java.util.ArrayList;
 
 public class DiskFormSaver implements FormSaver {
 
+    private final Context context;
+
+    public DiskFormSaver(Context context) {
+        this.context = context;
+    }
+
     @Override
-    public SaveToDiskResult save(Uri instanceContentURI, FormController formController, MediaUtils mediaUtils, boolean shouldFinalize, boolean exitAfter,
-                                 String updatedSaveName, ProgressListener progressListener, ArrayList<String> tempFiles, String currentProjectId, EntitiesRepository entitiesRepository, InstancesRepository instancesRepository) {
+    public SaveToDiskResult save(Uri instanceContentURI, FormController formController, MediaUtils mediaUtils,
+                                 boolean shouldFinalize, boolean exitAfter, String updatedSaveName,
+                                 ProgressListener progressListener, ArrayList<String> tempFiles,
+                                 String currentProjectId, EntitiesRepository entitiesRepository,
+                                 InstancesRepository instancesRepository) {
+
         SaveFormToDisk saveFormToDisk = new SaveFormToDisk(formController, mediaUtils, exitAfter, shouldFinalize,
-                updatedSaveName, instanceContentURI, tempFiles, currentProjectId, entitiesRepository, instancesRepository);
+                updatedSaveName, instanceContentURI, tempFiles, currentProjectId, entitiesRepository,
+                instancesRepository, context); // Pass context here
+
         return saveFormToDisk.saveForm(progressListener);
     }
 }

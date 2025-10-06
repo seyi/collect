@@ -1,5 +1,6 @@
 package org.odk.collect.android.formentry
 
+import android.content.Context
 import org.apache.commons.io.FileUtils.readFileToByteArray
 import org.javarosa.core.model.FormDef
 import org.javarosa.core.model.instance.InstanceInitializationFactory
@@ -13,6 +14,7 @@ import org.odk.collect.android.dynamicpreload.ExternalAnswerResolver
 import org.odk.collect.android.javarosawrapper.FailedValidationResult
 import org.odk.collect.android.javarosawrapper.FormController
 import org.odk.collect.android.javarosawrapper.JavaRosaFormController
+import org.odk.collect.android.utilities.CSVDataProvider
 import org.odk.collect.android.utilities.FileUtils
 import org.odk.collect.android.utilities.FormUtils
 import org.odk.collect.entities.LocalEntityUseCases
@@ -21,6 +23,7 @@ import org.odk.collect.forms.Form
 import org.odk.collect.forms.FormsRepository
 import org.odk.collect.forms.instances.Instance
 import org.odk.collect.forms.instances.InstancesRepository
+import timber.log.Timber
 import java.io.File
 
 object FormEntryUseCases {
@@ -124,7 +127,8 @@ object FormEntryUseCases {
     fun finalizeDraft(
         formController: FormController,
         instancesRepository: InstancesRepository,
-        entitiesRepository: EntitiesRepository
+        entitiesRepository: EntitiesRepository,
+        context: Context? = null
     ): Instance? {
         val instance =
             getInstanceFromFormController(formController, instancesRepository)!!
@@ -153,6 +157,7 @@ object FormEntryUseCases {
         formController: FormController,
         instancesRepository: InstancesRepository,
         entitiesRepository: EntitiesRepository,
+        context: Context? = null,
     ): Instance? {
         formController.finalizeForm()
         val formEntities = formController.getEntities()
@@ -162,7 +167,7 @@ object FormEntryUseCases {
         )
 
         val instanceName = formController.getSubmissionMetadata()?.instanceName
-        return instancesRepository.save(
+        val finalizedInstance = instancesRepository.save(
             Instance.Builder(instance)
                 .status(Instance.STATUS_COMPLETE)
                 .canEditWhenComplete(formController.isSubmissionEntireForm())
@@ -170,7 +175,45 @@ object FormEntryUseCases {
                 .canDeleteBeforeSend(formEntities == null)
                 .build()
         )
+
+        // === CSV CLEANUP ON FORM FINALIZATION ===
+        if (context != null) {
+            clearCSVDataOnFormCompletion(context, instance.formId)
+        } else {
+            Timber.w("Context not provided for CSV cleanup on form finalization")
+        }
+
+        return finalizedInstance
     }
+
+
+    /**
+     * Clear CSV data from SharedPreferences when form is completed
+     */
+    private fun clearCSVDataOnFormCompletion(context: Context, formId: String?) {
+        try {
+            val csvDataProvider = CSVDataProvider.getInstance(context)
+
+            // Check if CSV data exists before clearing
+            if (csvDataProvider.isCSVLoaded()) {
+                val rowCount = csvDataProvider.getRowCount()
+                val success = csvDataProvider.clearCSVData()
+
+                if (success) {
+                    Timber.d("CSV data cleared successfully on form completion: %d rows removed for form %s",
+                        rowCount, formId ?: "unknown")
+                } else {
+                    Timber.e("Failed to clear CSV data on form completion for form %s", formId ?: "unknown")
+                }
+            } else {
+                Timber.d("No CSV data found to clear for form %s", formId ?: "unknown")
+            }
+
+        } catch (e: Exception) {
+            Timber.e(e, "Error clearing CSV data on form completion for form %s", formId ?: "unknown")
+        }
+    }
+
 
     private fun getInstanceFromFormController(
         formController: FormController,
