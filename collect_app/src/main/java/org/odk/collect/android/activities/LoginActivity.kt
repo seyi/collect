@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import org.odk.collect.android.authentication.AzureAuthService
 import org.odk.collect.android.authentication.AuthResult
 import org.odk.collect.android.authentication.UserData
+import org.odk.collect.android.authentication.UserRole
 import org.odk.collect.android.databinding.LoginActivityBinding
 import org.odk.collect.android.mainmenu.MainMenuActivity
 import org.odk.collect.androidshared.ui.ToastUtils
