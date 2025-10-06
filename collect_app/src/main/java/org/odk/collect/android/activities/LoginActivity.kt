@@ -160,6 +160,10 @@ class LoginActivity : AppCompatActivity() {
         binding.usernameLayout.error = null
         binding.passwordLayout.error = null
 
+        // Mark as regular user (not guest)
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_IS_GUEST_USER, false).apply()
+
         // Show loading state
         setLoadingState(true)
 
@@ -214,6 +218,10 @@ class LoginActivity : AppCompatActivity() {
 
     private fun saveUserSession(userData: UserData) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        // Check if this is a guest login (flag was set before authentication)
+        val isGuest = prefs.getBoolean(KEY_IS_GUEST_USER, false)
+
         prefs.edit().apply {
             putBoolean(KEY_IS_LOGGED_IN, true)
             putString(KEY_USERNAME, userData.username)
@@ -223,9 +231,11 @@ class LoginActivity : AppCompatActivity() {
             putString(KEY_AUTH_TOKEN, userData.token)
             putString(KEY_USER_ROLE, userData.role.roleName)
             putString(KEY_USER_STATE, userData.state)
+            // Preserve the guest flag
+            putBoolean(KEY_IS_GUEST_USER, isGuest)
             apply()
         }
-        Timber.d("User session saved: ${userData.username}, role: ${userData.role}, state: ${userData.state}")
+        Timber.d("User session saved: ${userData.username}, role: ${userData.role}, state: ${userData.state}, isGuest: $isGuest")
     }
 
     private fun performAnonymousLogin() {
