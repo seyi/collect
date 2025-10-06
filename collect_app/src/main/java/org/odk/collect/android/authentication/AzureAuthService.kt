@@ -99,15 +99,18 @@ class AzureAuthService(private val context: Context) {
                                 val userObj = jsonResponse.optJSONObject("user")
 
                                 if (token.isNotEmpty() && userObj != null) {
+                                    val roleString = userObj.optString("role", "")
                                     val userData = UserData(
                                         username = userObj.optString("email", username),
                                         userId = userObj.optString("id", ""),
                                         email = userObj.optString("email", ""),
                                         displayName = userObj.optString("displayName", username),
-                                        token = token
+                                        token = token,
+                                        role = UserRole.fromString(roleString),
+                                        state = userObj.optString("state", "")
                                     )
 
-                                    Timber.d("Authentication successful for user: ${userData.username}")
+                                    Timber.d("Authentication successful for user: ${userData.username}, role: ${userData.role}")
                                     AuthResult.Success(userData)
                                 } else {
                                     val message = jsonResponse.optString("message", "Authentication failed")
@@ -214,5 +217,7 @@ data class UserData(
     val userId: String = "",
     val email: String = "",
     val displayName: String = "",
-    val token: String = ""
+    val token: String = "",
+    val role: UserRole = UserRole.UNKNOWN,
+    val state: String = ""
 )

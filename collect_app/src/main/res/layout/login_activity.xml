@@ -128,16 +128,32 @@
             tools:visibility="visible" />
 
         <TextView
+            android:id="@+id/anonymous_login_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Continue as Guest"
+            android:textAppearance="?textAppearanceBody2"
+            android:textColor="?attr/colorPrimary"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground"
+            android:padding="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/login_button" />
+
+        <TextView
             android:id="@+id/app_version"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
+            android:layout_marginTop="24dp"
             android:text="ACReSAL Collect 1.0.1"
             android:textAppearance="?textAppearanceCaption"
             android:textColor="@color/color_on_surface_medium_emphasis"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/login_button" />
+            app:layout_constraintTop_toBottomOf="@id/anonymous_login_text" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>

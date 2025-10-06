@@ -30,11 +30,17 @@ class LoginActivity : AppCompatActivity() {
         private const val KEY_EMAIL = "email"
         private const val KEY_DISPLAY_NAME = "display_name"
         private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_USER_ROLE = "user_role"
+        private const val KEY_USER_STATE = "user_state"
 
         // Fallback mode for offline/testing
         private const val ENABLE_FALLBACK_AUTH = true
         private const val FALLBACK_USERNAME = "admin"
         private const val FALLBACK_PASSWORD = "admin123"
+
+        // Anonymous/Guest login credentials
+        const val ANONYMOUS_EMAIL = "guest@acresal.com"
+        const val ANONYMOUS_PASSWORD = "guest123"
 
         fun isLoggedIn(context: Context): Boolean {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -50,6 +56,8 @@ class LoginActivity : AppCompatActivity() {
                 remove(KEY_EMAIL)
                 remove(KEY_DISPLAY_NAME)
                 remove(KEY_AUTH_TOKEN)
+                remove(KEY_USER_ROLE)
+                remove(KEY_USER_STATE)
                 apply()
             }
             Timber.d("User logged out successfully")
@@ -69,8 +77,20 @@ class LoginActivity : AppCompatActivity() {
                 userId = prefs.getString(KEY_USER_ID, "") ?: "",
                 email = prefs.getString(KEY_EMAIL, "") ?: "",
                 displayName = prefs.getString(KEY_DISPLAY_NAME, username) ?: username,
-                token = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
+                token = prefs.getString(KEY_AUTH_TOKEN, "") ?: "",
+                role = UserRole.fromString(prefs.getString(KEY_USER_ROLE, null)),
+                state = prefs.getString(KEY_USER_STATE, "") ?: ""
             )
+        }
+
+        fun getUserRole(context: Context): UserRole {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return UserRole.fromString(prefs.getString(KEY_USER_ROLE, null))
+        }
+
+        fun getUserState(context: Context): String {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getString(KEY_USER_STATE, "") ?: ""
         }
     }
 
@@ -97,6 +117,12 @@ class LoginActivity : AppCompatActivity() {
             hideKeyboard()
             attemptLogin()
             true
+        }
+
+        // Anonymous/Guest login
+        binding.anonymousLoginText.setOnClickListener {
+            hideKeyboard()
+            performAnonymousLogin()
         }
     }
 
@@ -185,9 +211,22 @@ class LoginActivity : AppCompatActivity() {
             putString(KEY_EMAIL, userData.email)
             putString(KEY_DISPLAY_NAME, userData.displayName)
             putString(KEY_AUTH_TOKEN, userData.token)
+            putString(KEY_USER_ROLE, userData.role.roleName)
+            putString(KEY_USER_STATE, userData.state)
             apply()
         }
-        Timber.d("User session saved: ${userData.username}")
+        Timber.d("User session saved: ${userData.username}, role: ${userData.role}, state: ${userData.state}")
+    }
+
+    private fun performAnonymousLogin() {
+        Timber.d("Performing anonymous/guest login")
+        ToastUtils.showShortToast(this, "Logging in as Guest...")
+
+        // Set loading state
+        setLoadingState(true)
+
+        // Use default guest credentials
+        performAzureLogin(ANONYMOUS_EMAIL, ANONYMOUS_PASSWORD)
     }
 
     private fun navigateToApp() {
