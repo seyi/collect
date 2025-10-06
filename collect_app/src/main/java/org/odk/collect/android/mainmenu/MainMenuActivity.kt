@@ -90,7 +90,13 @@ class MainMenuActivity : LocalizedActivity() {
         if (!currentProjectViewModel.hasCurrentProject()) {
             super.onCreate(null)
             handleIntent(intent)
-            ActivityUtils.startActivityAndCloseAllOthers(this, AC_FirstLaunchActivity::class.java)
+
+            // Check if user is guest - send to manual config, otherwise auto-config
+            if (LoginActivity.isGuestUser(this)) {
+                ActivityUtils.startActivityAndCloseAllOthers(this, FirstLaunchActivity::class.java)
+            } else {
+                ActivityUtils.startActivityAndCloseAllOthers(this, AC_FirstLaunchActivity::class.java)
+            }
             return
         } else {
             handleIntent(intent)
