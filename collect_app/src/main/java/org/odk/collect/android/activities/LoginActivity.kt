@@ -42,6 +42,9 @@ class LoginActivity : AppCompatActivity() {
         const val ANONYMOUS_EMAIL = "guest@acresal.com"
         const val ANONYMOUS_PASSWORD = "guest123"
 
+        // Key to track if user is guest
+        private const val KEY_IS_GUEST_USER = "is_guest_user"
+
         fun isLoggedIn(context: Context): Boolean {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             return prefs.getBoolean(KEY_IS_LOGGED_IN, false)
@@ -58,9 +61,15 @@ class LoginActivity : AppCompatActivity() {
                 remove(KEY_AUTH_TOKEN)
                 remove(KEY_USER_ROLE)
                 remove(KEY_USER_STATE)
+                remove(KEY_IS_GUEST_USER)
                 apply()
             }
             Timber.d("User logged out successfully")
+        }
+
+        fun isGuestUser(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean(KEY_IS_GUEST_USER, false)
         }
 
         fun getLoggedInUsername(context: Context): String? {
@@ -222,6 +231,10 @@ class LoginActivity : AppCompatActivity() {
         Timber.d("Performing anonymous/guest login")
         ToastUtils.showShortToast(this, "Logging in as Guest...")
 
+        // Mark as guest user
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_IS_GUEST_USER, true).apply()
+
         // Set loading state
         setLoadingState(true)
 
@@ -230,17 +243,34 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun navigateToApp() {
-        // Check if project is already configured, if so skip configuration screen
+        // Check if this is a guest user
+        val isGuest = isGuestUser(this)
+
+        // Check if project is already configured
         try {
             val projectsDataService = org.odk.collect.android.injection.DaggerUtils.getComponent(this).currentProjectProvider()
             val currentProject = projectsDataService.getCurrentProject()
 
-            // Project already exists, go directly to MainMenuActivity
-            ActivityUtils.startActivityAndCloseAllOthers(this, MainMenuActivity::class.java)
+            // Project already exists
+            if (isGuest) {
+                // Guest users can still access project configuration screen
+                Timber.d("Guest user logged in with existing project, allowing project configuration")
+                ActivityUtils.startActivityAndCloseAllOthers(this, FirstLaunchActivity::class.java)
+            } else {
+                // Regular users go directly to main menu
+                ActivityUtils.startActivityAndCloseAllOthers(this, MainMenuActivity::class.java)
+            }
         } catch (e: Exception) {
-            // No project yet, go to configuration screen which will auto-configure
-            Timber.d("No project found, navigating to auto-configure: ${e.message}")
-            ActivityUtils.startActivityAndCloseAllOthers(this, AC_FirstLaunchActivity::class.java)
+            // No project yet
+            if (isGuest) {
+                // Guest users go to manual project configuration screen
+                Timber.d("Guest user logged in, showing project configuration screen")
+                ActivityUtils.startActivityAndCloseAllOthers(this, FirstLaunchActivity::class.java)
+            } else {
+                // Regular users get auto-configured project
+                Timber.d("Regular user, navigating to auto-configure: ${e.message}")
+                ActivityUtils.startActivityAndCloseAllOthers(this, AC_FirstLaunchActivity::class.java)
+            }
         }
     }
 
