@@ -35,6 +35,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.location.Location;
 import android.location.LocationManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -124,6 +125,8 @@ import org.odk.collect.android.formentry.saving.FormSaveViewModel;
 import org.odk.collect.android.formentry.saving.SaveAnswerFileErrorDialogFragment;
 import org.odk.collect.android.formentry.saving.SaveAnswerFileProgressDialogFragment;
 import org.odk.collect.android.formentry.saving.SaveFormProgressDialogFragment;
+import org.odk.collect.android.geofencing.GeofenceFormHelper;
+import org.odk.collect.android.geofencing.LocationValidationDialogFragment;
 import org.odk.collect.android.formhierarchy.FormHierarchyActivity;
 import org.odk.collect.android.formhierarchy.ViewOnlyFormHierarchyActivity;
 import org.odk.collect.android.fragments.MediaLoadingFragment;
@@ -185,6 +188,7 @@ import org.odk.collect.audioclips.AudioClipViewModel;
 import org.odk.collect.audiorecorder.recording.AudioRecorder;
 import org.odk.collect.externalapp.ExternalAppUtils;
 import org.odk.collect.forms.Form;
+import org.odk.collect.maps.MapPoint;
 import org.odk.collect.forms.instances.Instance;
 import org.odk.collect.location.LocationClient;
 import org.odk.collect.material.MaterialProgressDialogFragment;
@@ -231,7 +235,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         AudioControllerView.SwipableParent, FormIndexAnimationHandler.Listener,
         DeleteRepeatDialogFragment.DeleteRepeatDialogCallback,
         SelectMinimalDialog.SelectMinimalDialogListener, CustomDatePickerDialog.DateChangeListener,
-        CustomTimePickerDialog.TimeChangeListener {
+        CustomTimePickerDialog.TimeChangeListener, LocationValidationDialogFragment.LocationValidationCallback {
 
     public static final String KEY_INSTANCES = "instances";
     public static final String KEY_SUCCESS = "success";
@@ -273,6 +277,14 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
     private boolean shownAlertDialogIsGroupRepeat;
 
     private FormLoaderTask formLoaderTask;
+
+    // Geofencing validation state
+    private boolean locationValidationOverridden = false;
+    private boolean pendingFormSave = false;
+    private boolean pendingFormSaveExit = false;
+    private boolean pendingFormSaveComplete = false;
+    private String pendingFormSaveName = null;
+    private boolean pendingFormSaveCurrent = false;
 
     private TextView nextButton;
     private TextView backButton;
