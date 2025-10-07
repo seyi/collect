@@ -20,4 +20,16 @@ limitations under the License.
         android:title="@string/projects"
         app:actionLayout="@layout/current_project_menu_icon"
         app:showAsAction="always" />
+
+    <item
+        android:id="@+id/logout"
+        android:title="@string/logout"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/geofence_status"
+        android:title="@string/location_status"
+        android:orderInCategory="100"
+        app:actionLayout="@layout/geofence_status_menu_item"
+        app:showAsAction="always" />
 </menu>

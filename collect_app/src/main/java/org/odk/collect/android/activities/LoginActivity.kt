@@ -14,6 +14,7 @@ import org.odk.collect.android.authentication.AuthResult
 import org.odk.collect.android.authentication.UserData
 import org.odk.collect.android.authentication.UserRole
 import org.odk.collect.android.databinding.LoginActivityBinding
+import org.odk.collect.android.geofencing.GeoFenceManager
 import org.odk.collect.android.mainmenu.MainMenuActivity
 import org.odk.collect.androidshared.ui.ToastUtils
 import timber.log.Timber
@@ -236,6 +237,62 @@ class LoginActivity : AppCompatActivity() {
             apply()
         }
         Timber.d("User session saved: ${userData.username}, role: ${userData.role}, state: ${userData.state}, isGuest: $isGuest")
+
+        // Load geofences for the user's state after successful login
+        loadGeofencesForUser(userData)
+    }
+
+    private fun loadGeofencesForUser(userData: UserData) {
+        lifecycleScope.launch {
+            try {
+                Timber.d("Loading geofences for user: ${userData.username}, state: ${userData.state}")
+
+                val geoFenceManager = GeoFenceManager.getInstance(this@LoginActivity)
+
+                // Determine which state(s) to load based on user role
+                val statesToLoad = when (userData.role) {
+                    UserRole.FEDERAL_ADMIN, UserRole.FEDERAL_USER, UserRole.ADMIN -> {
+                        // Load all states for federal users
+                        Timber.d("Federal user detected, loading all states")
+                        null // null means load all states
+                    }
+                    UserRole.STATE_ADMIN, UserRole.STATE_USER -> {
+                        // Load only user's assigned state
+                        if (userData.state.isNotEmpty()) {
+                            Timber.d("State user detected, loading state: ${userData.state}")
+                            userData.state
+                        } else {
+                            Timber.w("State user has no state assigned, skipping geofence loading")
+                            return@launch
+                        }
+                    }
+                    UserRole.TEST_USER -> {
+                        // Test users can load all states for testing purposes
+                        Timber.d("Test user detected, loading all states")
+                        null
+                    }
+                    UserRole.UNKNOWN -> {
+                        // Unknown role, skip geofence loading
+                        Timber.w("Unknown user role, skipping geofence loading")
+                        return@launch
+                    }
+                }
+
+                // Load geofences in background
+                val success = geoFenceManager.loadGeofences(statesToLoad)
+
+                if (success) {
+                    val stats = geoFenceManager.getCacheStats()
+                    Timber.d("Geofences loaded successfully: ${stats.totalPolygons} polygons, " +
+                            "${stats.loadedStates.size} states")
+                } else {
+                    Timber.w("Failed to load geofences")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading geofences: ${e.message}")
+                // Don't block navigation on geofence loading failure
+            }
+        }
     }
 
     private fun performAnonymousLogin() {

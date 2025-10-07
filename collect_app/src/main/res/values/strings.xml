@@ -1,1 +1,4 @@
-<resources></resources>
+<resources>
+    <string name="logout">Logout</string>
+    <string name="location_status">Location Status</string>
+</resources>
