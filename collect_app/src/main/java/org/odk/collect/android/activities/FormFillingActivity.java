@@ -74,6 +74,7 @@ import org.javarosa.core.model.FormDef;
 import org.javarosa.core.model.FormIndex;
 import org.javarosa.core.model.SelectChoice;
 import org.javarosa.core.model.data.IAnswerData;
+import org.javarosa.core.model.data.SelectOneData;
 import org.javarosa.core.model.data.StringData;
 import org.javarosa.core.model.data.helper.Selection;
 import org.javarosa.core.model.instance.TreeElement;
@@ -2271,7 +2272,11 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 return;
             }
 
-            Timber.i("Auto-populating geofence fields for location: %s", fieldValues.toString());
+            Timber.i("Auto-populating geofence fields for location:");
+            Timber.i("  State: %s", fieldValues.getState());
+            Timber.i("  LGA: %s", fieldValues.getLga());
+            Timber.i("  Strategic Catchment: %s", fieldValues.getStrategicCatchment());
+            Timber.i("  Micro Catchment: %s", fieldValues.getMicroCatchment());
 
             // Loop through all prompts and populate matching fields
             int populatedCount = 0;
@@ -2287,19 +2292,60 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                     continue;
                 }
 
+                // Get control type for debugging
+                int controlType = prompt.getControlType();
+                Timber.d("Checking field '%s' (type: %d)", questionText, controlType);
+
                 // Try to map this question to a geofence value
                 String value = GeofenceFormHelper.INSTANCE.mapFieldValue(questionText, fieldValues);
 
                 if (value != null && !value.isEmpty()) {
                     try {
-                        // Create answer data (simple text answer)
-                        IAnswerData answerData = new StringData(value);
+                        IAnswerData answerData = null;
 
-                        // Save the answer to the form
-                        formController.saveAnswer(prompt.getIndex(), answerData);
+                        // Check if this is a select question
+                        if (prompt.getSelectChoices() != null && prompt.getSelectChoices().size() > 0) {
+                            // This is a select list - find matching choice by value or label
+                            Timber.d("Field '%s' is a select list, searching for choice matching '%s'", questionText, value);
 
-                        populatedCount++;
-                        Timber.i("Auto-populated field '%s' with value '%s'", questionText, value);
+                            SelectChoice matchingChoice = null;
+                            for (SelectChoice choice : prompt.getSelectChoices()) {
+                                String choiceValue = choice.getValue();
+                                String choiceLabel = prompt.getSelectChoiceText(choice);
+
+                                // Match by value or label (case-insensitive)
+                                if (choiceValue != null && choiceValue.equalsIgnoreCase(value)) {
+                                    matchingChoice = choice;
+                                    Timber.d("Found choice by value: %s = %s", choiceValue, choiceLabel);
+                                    break;
+                                } else if (choiceLabel != null && choiceLabel.equalsIgnoreCase(value)) {
+                                    matchingChoice = choice;
+                                    Timber.d("Found choice by label: %s = %s", choiceValue, choiceLabel);
+                                    break;
+                                }
+                            }
+
+                            if (matchingChoice != null) {
+                                // Create Selection with the matching choice
+                                Selection selection = new Selection(matchingChoice);
+                                answerData = new org.javarosa.core.model.data.SelectOneData(selection);
+                                Timber.d("Created SelectOneData for '%s'", questionText);
+                            } else {
+                                Timber.w("No matching choice found in select list for value '%s'", value);
+                            }
+                        } else {
+                            // This is a text field - use StringData
+                            answerData = new StringData(value);
+                            Timber.d("Created StringData for text field '%s'", questionText);
+                        }
+
+                        if (answerData != null) {
+                            // Save the answer to the form
+                            formController.saveAnswer(prompt.getIndex(), answerData);
+
+                            populatedCount++;
+                            Timber.i("Auto-populated field '%s' with value '%s'", questionText, value);
+                        }
                     } catch (Exception e) {
                         Timber.e(e, "Failed to auto-populate field '%s'", questionText);
                     }
