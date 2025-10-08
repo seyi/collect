@@ -2354,6 +2354,24 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
 
             if (populatedCount > 0) {
                 Timber.i("Successfully auto-populated %d geofence field(s)", populatedCount);
+
+                // Show toast with location information
+                StringBuilder locationInfo = new StringBuilder("📍 Location Detected:\n");
+
+                if (fieldValues.getState() != null) {
+                    locationInfo.append("State: ").append(fieldValues.getState()).append("\n");
+                }
+                if (fieldValues.getLga() != null) {
+                    locationInfo.append("LGA: ").append(fieldValues.getLga()).append("\n");
+                }
+                if (fieldValues.getStrategicCatchment() != null) {
+                    locationInfo.append("Strategic Catchment: ").append(fieldValues.getStrategicCatchment()).append("\n");
+                }
+                if (fieldValues.getMicroCatchment() != null) {
+                    locationInfo.append("Micro Catchment: ").append(fieldValues.getMicroCatchment());
+                }
+
+                showLongToast(this, locationInfo.toString().trim());
             }
 
         } catch (Exception e) {
