@@ -65,6 +65,7 @@ import javax.inject.Inject;
 
 public class GeoPolyActivity extends LocalizedActivity implements GeoPolySettingsDialogFragment.SettingsDialogCallback {
     public static final String EXTRA_POLYGON = "answer";
+    public static final String EXTRA_IS_TEST_USER = "is_test_user";
     public static final String OUTPUT_MODE_KEY = "output_mode";
     public static final String POINTS_KEY = "points";
     public static final String INPUT_ACTIVE_KEY = "input_active";
@@ -73,6 +74,7 @@ public class GeoPolyActivity extends LocalizedActivity implements GeoPolySetting
     public static final String INTERVAL_INDEX_KEY = "interval_index";
     public static final String ACCURACY_THRESHOLD_INDEX_KEY = "accuracy_threshold_index";
     protected Bundle previousState;
+    private boolean isTestUser = false;
 
     public enum OutputMode { GEOTRACE, GEOSHAPE }
 
@@ -176,6 +178,7 @@ public class GeoPolyActivity extends LocalizedActivity implements GeoPolySetting
 
         intentReadOnly = getIntent().getBooleanExtra(EXTRA_READ_ONLY, false);
         outputMode = (OutputMode) getIntent().getSerializableExtra(OUTPUT_MODE_KEY);
+        isTestUser = getIntent().getBooleanExtra(EXTRA_IS_TEST_USER, false);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setTitle(getString(outputMode == OutputMode.GEOTRACE ?
@@ -256,7 +259,8 @@ public class GeoPolyActivity extends LocalizedActivity implements GeoPolySetting
         playButton = findViewById(R.id.play);
         playButton.setOnClickListener(v -> {
             if (map.getPolyLinePoints(featureId).isEmpty()) {
-                DialogFragmentUtils.showIfNotShowing(GeoPolySettingsDialogFragment.class, getSupportFragmentManager());
+                GeoPolySettingsDialogFragment dialog = GeoPolySettingsDialogFragment.newInstance(isTestUser);
+                DialogFragmentUtils.showIfNotShowing(dialog, GeoPolySettingsDialogFragment.class, getSupportFragmentManager());
             } else {
                 startInput();
             }

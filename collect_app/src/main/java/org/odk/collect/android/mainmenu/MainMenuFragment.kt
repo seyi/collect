@@ -335,6 +335,30 @@ class MainMenuFragment(
                 return
             }
 
+            // Load geofences for all Nigerian states
+            lifecycleScope.launch {
+                try {
+                    val geoFenceManager = GeoFenceManager.getInstance(requireContext())
+
+                    // Load geofences for all 20 states
+                    val states = listOf(
+                        "Adamawa", "Bauchi", "Benue", "Borno", "Fct", "Gombe",
+                        "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi",
+                        "Kwara", "Nasarawa", "Niger", "Plateau", "Sokoto",
+                        "Taraba", "Yobe", "Zamfara"
+                    )
+
+                    states.forEach { state ->
+                        geoFenceManager.loadGeofences(state)
+                        Timber.d("Loaded geofences for $state")
+                    }
+
+                    Timber.i("All geofences loaded successfully")
+                } catch (e: Exception) {
+                    Timber.e(e, "Error loading geofences: ${e.message}")
+                }
+            }
+
             // Request location updates every 10 seconds
             locationManager?.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
@@ -403,8 +427,26 @@ class MainMenuFragment(
                 val geoFenceManager = GeoFenceManager.getInstance(requireContext())
                 val point = MapPoint(location.latitude, location.longitude)
 
+                Timber.d("GPS Location: lat=${location.latitude}, lon=${location.longitude}")
+                Timber.d("MapPoint created: lat=${point.latitude}, lon=${point.longitude}")
+
+                val cacheStats = geoFenceManager.getCacheStats()
+                Timber.d("Cache stats: ${cacheStats.totalPolygons} polygons, ${cacheStats.loadedStates.size} states")
+
+                // Check if geofences are loaded
+                if (cacheStats.totalPolygons == 0) {
+                    Timber.w("Geofences not loaded yet, skipping validation")
+                    textView.text = "Loading geofences..."
+                    return@launch
+                }
+
                 // Get containing polygons
                 val polygons = geoFenceManager.getContainingPolygons(point)
+
+                Timber.d("Found ${polygons.size} containing polygons")
+                polygons.forEach { polygon ->
+                    Timber.d("  - ${polygon.name} (${polygon.type}) in ${polygon.state}")
+                }
 
                 if (polygons.isEmpty()) {
                     textView.text = "Outside"

@@ -19,6 +19,8 @@ import org.odk.collect.geo.R;
 
 public class GeoPolySettingsDialogFragment extends DialogFragment {
 
+    private static final String ARG_IS_TEST_USER = "is_test_user";
+
     private static final int[] INTERVAL_OPTIONS = {
             1, 5, 10, 20, 30, 60, 300, 600, 1200, 1800
     };
@@ -34,6 +36,15 @@ public class GeoPolySettingsDialogFragment extends DialogFragment {
     private int checkedRadioButtonId = -1;
     private int intervalIndex = -1;
     private int accuracyThresholdIndex = -1;
+    private boolean isTestUser = false;
+
+    public static GeoPolySettingsDialogFragment newInstance(boolean isTestUser) {
+        GeoPolySettingsDialogFragment fragment = new GeoPolySettingsDialogFragment();
+        Bundle args = new Bundle();
+        args.putBoolean(ARG_IS_TEST_USER, isTestUser);
+        fragment.setArguments(args);
+        return fragment;
+    }
 
     @Override
     public void onAttach(@NonNull Context context) {
@@ -41,6 +52,10 @@ public class GeoPolySettingsDialogFragment extends DialogFragment {
 
         if (context instanceof SettingsDialogCallback) {
             callback = (SettingsDialogCallback) context;
+        }
+
+        if (getArguments() != null) {
+            isTestUser = getArguments().getBoolean(ARG_IS_TEST_USER, false);
         }
     }
 
@@ -55,6 +70,12 @@ public class GeoPolySettingsDialogFragment extends DialogFragment {
             checkedRadioButtonId = checkedId;
             autoOptions.setVisibility(checkedId == R.id.automatic_mode ? View.VISIBLE : View.GONE);
         });
+
+        // Hide placement mode for test users
+        if (isTestUser) {
+            View placementModeButton = settingsView.findViewById(R.id.placement_mode);
+            placementModeButton.setVisibility(View.GONE);
+        }
 
         autoOptions = settingsView.findViewById(R.id.auto_options);
         Spinner autoInterval = settingsView.findViewById(R.id.auto_interval);
@@ -95,6 +116,11 @@ public class GeoPolySettingsDialogFragment extends DialogFragment {
             checkedRadioButtonId = callback.getCheckedId();
             intervalIndex = callback.getIntervalIndex();
             accuracyThresholdIndex = callback.getAccuracyThresholdIndex();
+
+            // For test users, default to automatic mode
+            if (isTestUser && checkedRadioButtonId == R.id.placement_mode) {
+                checkedRadioButtonId = R.id.automatic_mode;
+            }
 
             radioGroup.check(checkedRadioButtonId);
             autoInterval.setSelection(intervalIndex);

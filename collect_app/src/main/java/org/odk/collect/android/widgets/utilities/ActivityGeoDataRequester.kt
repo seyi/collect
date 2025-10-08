@@ -8,6 +8,8 @@ import org.odk.collect.android.utilities.Appearances
 import org.odk.collect.android.utilities.ApplicationConstants
 import org.odk.collect.android.utilities.FormEntryPromptUtils
 import org.odk.collect.android.widgets.interfaces.GeoDataRequester
+import org.odk.collect.android.activities.LoginActivity
+import org.odk.collect.android.authentication.UserRole
 import org.odk.collect.geo.Constants.EXTRA_DRAGGABLE_ONLY
 import org.odk.collect.geo.Constants.EXTRA_READ_ONLY
 import org.odk.collect.geo.Constants.EXTRA_RETAIN_MOCK_ACCURACY
@@ -105,6 +107,11 @@ class ActivityGeoDataRequester(
                         )
                         it.putExtra(EXTRA_READ_ONLY, prompt.isReadOnly)
                         it.putExtra(EXTRA_RETAIN_MOCK_ACCURACY, getAllowMockAccuracy(prompt))
+                        val userRole = LoginActivity.getUserRole(activity)
+                        it.putExtra(
+                            GeoPolyActivity.EXTRA_IS_TEST_USER,
+                            userRole == UserRole.TEST_USER || userRole == UserRole.STATE_USER
+                        )
                     }
 
                     activity.startActivityForResult(
@@ -138,6 +145,11 @@ class ActivityGeoDataRequester(
                         )
                         it.putExtra(EXTRA_READ_ONLY, prompt.isReadOnly)
                         it.putExtra(EXTRA_RETAIN_MOCK_ACCURACY, getAllowMockAccuracy(prompt))
+                        val userRole = LoginActivity.getUserRole(activity)
+                        it.putExtra(
+                            GeoPolyActivity.EXTRA_IS_TEST_USER,
+                            userRole == UserRole.TEST_USER || userRole == UserRole.STATE_USER
+                        )
                     }
 
                     activity.startActivityForResult(

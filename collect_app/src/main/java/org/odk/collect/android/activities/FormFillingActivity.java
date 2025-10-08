@@ -2183,6 +2183,22 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         onDataChanged(items);
     }
 
+    // LocationValidationCallback methods
+    @Override
+    public void onOverrideLocation() {
+        // Location restriction overridden by admin
+        // TODO: Log override event with timestamp and user information
+        Timber.i("Location restriction overridden by admin user");
+        // Allow form to continue normally
+    }
+
+    @Override
+    public void onCancelForm() {
+        // User chose to cancel form due to location validation failure
+        Timber.i("Form cancelled due to location validation");
+        finish();
+    }
+
     /*
      *TODO: this is not an ideal way to solve communication between a dialog created by a widget and the widget.
      * Instead we should use viewmodels: https://github.com/getodk/collect/pull/3964#issuecomment-670155433

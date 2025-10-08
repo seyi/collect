@@ -45,7 +45,10 @@ abstract class BaseLocationClient(protected val locationManager: LocationManager
             }
         }
 
-        return getProviderIfEnabled(provider, backupProvider)
+        val selectedProvider = getProviderIfEnabled(provider, backupProvider)
+        timber.log.Timber.d("GPS Provider selection - Requested: $provider, Backup: $backupProvider, Selected: $selectedProvider")
+
+        return selectedProvider
     }
 
     private fun getProviderIfEnabled(provider: String, backupProvider: String?): String? {
@@ -54,6 +57,29 @@ abstract class BaseLocationClient(protected val locationManager: LocationManager
         } else if (hasProvider(backupProvider)) {
             return backupProvider
         }
+
+        // Fallback: Try to find ANY provider (for FakeGPS compatibility)
+        val allProviders = locationManager?.getAllProviders() ?: emptyList()
+        timber.log.Timber.w("Preferred providers not enabled. All available providers: ${allProviders.joinToString()}")
+
+        // Try GPS first (even if disabled, FakeGPS might work)
+        if (LocationManager.GPS_PROVIDER in allProviders) {
+            timber.log.Timber.i("Using GPS_PROVIDER as fallback (may work with FakeGPS)")
+            return LocationManager.GPS_PROVIDER
+        }
+
+        // Then try network
+        if (LocationManager.NETWORK_PROVIDER in allProviders) {
+            timber.log.Timber.i("Using NETWORK_PROVIDER as fallback")
+            return LocationManager.NETWORK_PROVIDER
+        }
+
+        // Last resort: passive
+        if (LocationManager.PASSIVE_PROVIDER in allProviders) {
+            timber.log.Timber.i("Using PASSIVE_PROVIDER as fallback")
+            return LocationManager.PASSIVE_PROVIDER
+        }
+
         return null
     }
 
@@ -63,12 +89,16 @@ abstract class BaseLocationClient(protected val locationManager: LocationManager
         }
 
         val enabledProviders = locationManager!!.getProviders(true)
+        timber.log.Timber.d("Checking provider '$provider' - Enabled providers: ${enabledProviders.joinToString()}")
+
         for (enabledProvider in enabledProviders) {
             if (enabledProvider.equals(provider, ignoreCase = true)) {
+                timber.log.Timber.d("Provider '$provider' is enabled")
                 return true
             }
         }
 
+        timber.log.Timber.w("Provider '$provider' is NOT enabled")
         return false
     }
 
