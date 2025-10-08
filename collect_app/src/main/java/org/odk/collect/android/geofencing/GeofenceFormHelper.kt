@@ -35,13 +35,14 @@ object GeofenceFormHelper {
     )
 
     /**
-     * Auto-populate location fields based on current GPS location
+     * Auto-populate location fields based on current GPS location (blocking version for Java)
      *
      * @param context Android context
      * @param location Current GPS location
      * @return LocationFieldValues with populated values or error
      */
-    suspend fun autoPopulateLocationFields(
+    @JvmStatic
+    fun autoPopulateLocationFieldsBlocking(
         context: Context,
         location: MapPoint
     ): LocationFieldValues {
@@ -80,6 +81,20 @@ object GeofenceFormHelper {
                 errorMessage = "Error determining location: ${e.message}"
             )
         }
+    }
+
+    /**
+     * Auto-populate location fields based on current GPS location (suspend version for Kotlin)
+     *
+     * @param context Android context
+     * @param location Current GPS location
+     * @return LocationFieldValues with populated values or error
+     */
+    suspend fun autoPopulateLocationFields(
+        context: Context,
+        location: MapPoint
+    ): LocationFieldValues {
+        return autoPopulateLocationFieldsBlocking(context, location)
     }
 
     /**
@@ -177,12 +192,32 @@ object GeofenceFormHelper {
      * Common field name variations handled
      */
     fun mapFieldValue(fieldName: String, fieldValues: LocationFieldValues): String? {
-        return when (fieldName.lowercase()) {
-            "state", "state_name" -> fieldValues.state
-            "lga", "lga_name" -> fieldValues.lga
-            "strategic_catchment", "scatchment", "s_catchment" -> fieldValues.strategicCatchment
-            "micro_catchment", "mcatchment", "m_catchment" -> fieldValues.microCatchment
-            "intervention", "intervention_site", "interv_site" -> fieldValues.intervention
+        // Normalize field name: trim, lowercase, remove extra spaces
+        val normalizedName = fieldName.trim().lowercase().replace("\\s+".toRegex(), " ")
+
+        return when (normalizedName) {
+            // State field variations
+            "state", "state_name", "state name" -> fieldValues.state
+
+            // LGA field variations
+            "lga", "lga_name", "lga name",
+            "local government area", "local government",
+            "local govt area", "local govt" -> fieldValues.lga
+
+            // Strategic catchment variations
+            "strategic_catchment", "strategic catchment",
+            "scatchment", "s_catchment", "s catchment",
+            "strategiccatchment" -> fieldValues.strategicCatchment
+
+            // Micro catchment variations
+            "micro_catchment", "micro catchment",
+            "mcatchment", "m_catchment", "m catchment",
+            "microcatchment" -> fieldValues.microCatchment
+
+            // Intervention variations
+            "intervention", "intervention_site", "intervention site",
+            "interv_site", "interv site", "interventionsite" -> fieldValues.intervention
+
             else -> null
         }
     }

@@ -30,6 +30,7 @@ import static org.odk.collect.settings.keys.ProjectKeys.KEY_NAVIGATION;
 import static org.odk.collect.settings.keys.ProtectedProjectKeys.KEY_MOVING_BACKWARDS;
 import static org.odk.collect.strings.localization.LocalizedApplicationKt.getLocalizedString;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -73,6 +74,7 @@ import org.javarosa.core.model.FormDef;
 import org.javarosa.core.model.FormIndex;
 import org.javarosa.core.model.SelectChoice;
 import org.javarosa.core.model.data.IAnswerData;
+import org.javarosa.core.model.data.StringData;
 import org.javarosa.core.model.data.helper.Selection;
 import org.javarosa.core.model.instance.TreeElement;
 import org.javarosa.form.api.FormEntryCaption;
@@ -1126,6 +1128,9 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                     FormEntryCaption[] groups = formController
                             .getGroupsForCurrentIndex();
                     FormEntryPrompt[] prompts = formController.getQuestionPrompts();
+
+                    // Auto-populate geofence fields if location available
+                    autoPopulateGeofenceFields(formController, prompts);
 
                     odkView = createODKView(advancingPage, prompts, groups);
                     odkView.setWidgetValueChangedListener(this);
@@ -2197,6 +2202,117 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         // User chose to cancel form due to location validation failure
         Timber.i("Form cancelled due to location validation");
         finish();
+    }
+
+    /**
+     * Get current GPS location from LocationManager
+     *
+     * @return Current Location or null if not available
+     */
+    @SuppressLint("MissingPermission")
+    private Location getCurrentLocation() {
+        try {
+            // Try to get last known location from fusedLocationClient first
+            if (fusedLocatonClient != null) {
+                Location location = fusedLocatonClient.getLastLocation();
+                if (location != null) {
+                    return location;
+                }
+            }
+
+            // Fallback to LocationManager
+            LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+            if (locationManager != null) {
+                // Try GPS provider first
+                Location gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                if (gpsLocation != null) {
+                    return gpsLocation;
+                }
+
+                // Try network provider as fallback
+                Location networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                if (networkLocation != null) {
+                    return networkLocation;
+                }
+            }
+        } catch (Exception e) {
+            Timber.e(e, "Error getting current location");
+        }
+
+        return null;
+    }
+
+    /**
+     * Auto-populate geofence-related form fields based on current GPS location
+     *
+     * @param formController The form controller
+     * @param prompts Array of form prompts to check for geofence fields
+     */
+    private void autoPopulateGeofenceFields(FormController formController, FormEntryPrompt[] prompts) {
+        if (prompts == null || prompts.length == 0) {
+            return;
+        }
+
+        try {
+            // Get current GPS location
+            Location currentLocation = getCurrentLocation();
+            if (currentLocation == null) {
+                Timber.d("No GPS location available for auto-population");
+                return;
+            }
+
+            // Get geofence data for current location
+            MapPoint mapPoint = new MapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
+            GeofenceFormHelper.LocationFieldValues fieldValues =
+                GeofenceFormHelper.autoPopulateLocationFieldsBlocking(this, mapPoint);
+
+            if (!fieldValues.isWithinBoundaries()) {
+                Timber.d("Location is outside geofence boundaries, skipping auto-population");
+                return;
+            }
+
+            Timber.i("Auto-populating geofence fields for location: %s", fieldValues.toString());
+
+            // Loop through all prompts and populate matching fields
+            int populatedCount = 0;
+            for (FormEntryPrompt prompt : prompts) {
+                // Skip if field already has an answer
+                if (prompt.getAnswerText() != null && !prompt.getAnswerText().isEmpty()) {
+                    continue;
+                }
+
+                // Get the question text (label) which contains the field name
+                String questionText = prompt.getQuestionText();
+                if (questionText == null || questionText.isEmpty()) {
+                    continue;
+                }
+
+                // Try to map this question to a geofence value
+                String value = GeofenceFormHelper.INSTANCE.mapFieldValue(questionText, fieldValues);
+
+                if (value != null && !value.isEmpty()) {
+                    try {
+                        // Create answer data (simple text answer)
+                        IAnswerData answerData = new StringData(value);
+
+                        // Save the answer to the form
+                        formController.saveAnswer(prompt.getIndex(), answerData);
+
+                        populatedCount++;
+                        Timber.i("Auto-populated field '%s' with value '%s'", questionText, value);
+                    } catch (Exception e) {
+                        Timber.e(e, "Failed to auto-populate field '%s'", questionText);
+                    }
+                }
+            }
+
+            if (populatedCount > 0) {
+                Timber.i("Successfully auto-populated %d geofence field(s)", populatedCount);
+            }
+
+        } catch (Exception e) {
+            Timber.e(e, "Error during geofence field auto-population");
+        }
     }
 
     /*
