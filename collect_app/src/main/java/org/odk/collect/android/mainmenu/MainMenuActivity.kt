@@ -111,7 +111,7 @@ class MainMenuActivity : LocalizedActivity() {
                     ProjectSettingsDialog(viewModelFactory)
                 }
                 .forClass(MainMenuFragment::class) {
-                    MainMenuFragment(viewModelFactory, settingsProvider)
+                    MainMenuFragment(viewModelFactory, settingsProvider, permissionsProvider)
                 }
                 .build()
 

@@ -43,6 +43,7 @@ import org.odk.collect.androidshared.ui.DialogFragmentUtils
 import org.odk.collect.androidshared.ui.SnackbarUtils
 import org.odk.collect.androidshared.ui.multiclicksafe.MultiClickGuard
 import org.odk.collect.maps.MapPoint
+import org.odk.collect.permissions.PermissionsProvider
 import org.odk.collect.projects.Project
 import org.odk.collect.settings.SettingsProvider
 import org.odk.collect.strings.R.string
@@ -51,7 +52,8 @@ import timber.log.Timber
 
 class MainMenuFragment(
     private val viewModelFactory: ViewModelProvider.Factory,
-    private val settingsProvider: SettingsProvider
+    private val settingsProvider: SettingsProvider,
+    private val permissionsProvider: PermissionsProvider
 ) : Fragment(), LocationListener {
 
     private lateinit var mainMenuViewModel: MainMenuViewModel
@@ -331,7 +333,8 @@ class MainMenuFragment(
                     Manifest.permission.ACCESS_FINE_LOCATION
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                Timber.d("Location permission not granted, skipping geofence tracking")
+                Timber.d("Location permission not granted, requesting permissions")
+                requestLocationPermissionsForGeofencing()
                 return
             }
 
@@ -386,6 +389,22 @@ class MainMenuFragment(
         } catch (e: Exception) {
             Timber.e(e, "Error stopping location tracking: ${e.message}")
         }
+    }
+
+    private fun requestLocationPermissionsForGeofencing() {
+        permissionsProvider.requestEnabledLocationPermissions(
+            requireActivity(),
+            object : org.odk.collect.permissions.PermissionListener {
+                override fun granted() {
+                    Timber.i("Location permissions granted, starting geofence tracking")
+                    startLocationTracking()
+                }
+
+                override fun denied() {
+                    Timber.w("Location permissions denied, geofence tracking disabled")
+                }
+            }
+        )
     }
 
     // LocationListener implementation
