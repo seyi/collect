@@ -15,7 +15,6 @@ class PermissionsDialogFragment(
     private val requestPermissionsViewModel: RequestPermissionsViewModel
 ) : DialogFragment() {
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         isCancelable = false
 

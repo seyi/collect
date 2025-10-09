@@ -13,20 +13,28 @@ class RequestPermissionsViewModel(
     private val permissionChecker: PermissionsChecker
 ) : ViewModel() {
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    val permissions = arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+    val permissions: Array<String>
+        get() {
+            val permissionList = mutableListOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+
+            // Add POST_NOTIFICATIONS for Android 13+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionList.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+
+            return permissionList.toTypedArray()
+        }
 
     fun shouldAskForPermissions(): Boolean {
-        return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            false
-        } else {
-            val permissionsAlreadyRequested =
-                settingsProvider.getMetaSettings().getBoolean(MetaKeys.PERMISSIONS_REQUESTED)
-            val permissionsGranted =
-                permissionChecker.isPermissionGranted(*permissions)
+        val permissionsAlreadyRequested =
+            settingsProvider.getMetaSettings().getBoolean(MetaKeys.PERMISSIONS_REQUESTED)
+        val permissionsGranted =
+            permissionChecker.isPermissionGranted(*permissions)
 
-            !(permissionsAlreadyRequested || permissionsGranted)
-        }
+        return !(permissionsAlreadyRequested || permissionsGranted)
     }
 
     fun permissionsRequested() {

@@ -18,12 +18,46 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.appcompat.widget.AppCompatImageView
-        android:id="@+id/notifications_icon"
+        android:id="@+id/location_icon"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/margin_extra_extra_large"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/permission_text"
+        app:srcCompat="@drawable/ic_room_24dp" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/location_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/margin"
+        android:text="@string/location"
+        android:textAppearance="?textAppearanceBodyLarge"
+        app:layout_constraintBottom_toTopOf="@id/location_description"
+        app:layout_constraintStart_toEndOf="@id/location_icon"
+        app:layout_constraintTop_toTopOf="@id/location_icon" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/location_description"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/margin"
+        android:layout_marginTop="@dimen/margin_extra_extra_small"
+        android:text="@string/required_for_geofencing"
+        android:textAppearance="?textAppearanceBodyMedium"
+        android:textColor="@color/color_on_surface_medium_emphasis"
+        app:layout_constraintBottom_toBottomOf="@id/location_icon"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/location_icon"
+        app:layout_constraintTop_toBottomOf="@id/location_title" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/notifications_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_large"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/location_icon"
         app:srcCompat="@drawable/ic_baseline_notifications_24" />
 
     <com.google.android.material.textview.MaterialTextView
