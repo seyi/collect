@@ -2371,7 +2371,9 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                     locationInfo.append("Micro Catchment: ").append(fieldValues.getMicroCatchment());
                 }
 
-                showLongToast(this, locationInfo.toString().trim());
+                final String toastMessage = locationInfo.toString().trim();
+                Timber.i("Showing location toast: %s", toastMessage);
+                runOnUiThread(() -> showLongToast(this, toastMessage));
             }
 
         } catch (Exception e) {
