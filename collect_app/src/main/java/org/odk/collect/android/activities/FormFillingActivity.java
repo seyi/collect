@@ -130,6 +130,7 @@ import org.odk.collect.android.formentry.saving.SaveAnswerFileProgressDialogFrag
 import org.odk.collect.android.formentry.saving.SaveFormProgressDialogFragment;
 import org.odk.collect.android.geofencing.GeofenceFormHelper;
 import org.odk.collect.android.geofencing.LocationValidationDialogFragment;
+import org.odk.collect.android.activities.LoginActivity;
 import org.odk.collect.android.formhierarchy.FormHierarchyActivity;
 import org.odk.collect.android.formhierarchy.ViewOnlyFormHierarchyActivity;
 import org.odk.collect.android.fragments.MediaLoadingFragment;
@@ -413,7 +414,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 DialogFragmentUtils.showIfNotShowing(RecordingWarningDialogFragment.class, getSupportFragmentManager());
             } else {
                 QuitFormDialog.show(getActivity(), formSaveViewModel, formEntryViewModel, settingsProvider, () -> {
-                    saveForm(true, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
+                    validateLocationBeforeSave(true, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
                 });
             }
         }
@@ -511,7 +512,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
 
                     @Override
                     public void save() {
-                        saveForm(false, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
+                        validateLocationBeforeSave(false, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
                     }
                 }
         );
@@ -680,6 +681,9 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         formSessionRepository.set(sessionId, formController, form, instance);
         AnalyticsUtils.setForm(formController);
         backgroundLocationViewModel.formFinishedLoading();
+
+        // Validate user location for state-level users
+        validateUserLocation();
     }
 
     private void setupFields(Bundle savedInstanceState) {
@@ -1245,7 +1249,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 this,
                 saveName,
                 formEndViewModel,
-                markAsFinalized -> saveForm(true, markAsFinalized, saveName, false)
+                markAsFinalized -> validateLocationBeforeSave(true, markAsFinalized, saveName, false)
         );
     }
 
@@ -1557,6 +1561,139 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         alertDialog.setButton(BUTTON_POSITIVE, getString(org.odk.collect.strings.R.string.ok), errorListener);
         swipeHandler.setBeenSwiped(false);
         alertDialog.show();
+    }
+
+    /**
+     * Validates location before saving the form (geofencing check).
+     * Only validates if the form is being marked as complete.
+     */
+    private void validateLocationBeforeSave(boolean exit, boolean complete, String updatedSaveName, boolean current) {
+        // Store pending save parameters
+        pendingFormSave = true;
+        pendingFormSaveExit = exit;
+        pendingFormSaveComplete = complete;
+        pendingFormSaveName = updatedSaveName;
+        pendingFormSaveCurrent = current;
+
+        // If not finalizing (complete=false), skip validation
+        if (!complete) {
+            proceedWithFormSave();
+            return;
+        }
+
+        // If already overridden by admin, proceed
+        if (locationValidationOverridden) {
+            proceedWithFormSave();
+            return;
+        }
+
+        // Get current GPS location
+        final Location location = getCurrentLocation();
+        if (location == null) {
+            // No GPS available - show warning dialog
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("No GPS Location")
+                    .setMessage("Cannot validate location because GPS is unavailable. Continue without validation?")
+                    .setPositiveButton("Continue Anyway", (dialog, which) -> {
+                        proceedWithFormSave();
+                    })
+                    .setNegativeButton("Cancel", (dialog, which) -> {
+                        resetPendingSaveState();
+                    })
+                    .setCancelable(false)
+                    .show();
+            return;
+        }
+
+        // Run validation in background
+        new AsyncTask<Void, Void, GeofenceFormHelper.ValidationResult>() {
+            @Override
+            protected GeofenceFormHelper.ValidationResult doInBackground(Void... voids) {
+                MapPoint mapPoint = new MapPoint(location.getLatitude(), location.getLongitude());
+                return GeofenceFormHelper.INSTANCE.validateLocationForUserBlocking(
+                        FormFillingActivity.this,
+                        mapPoint
+                );
+            }
+
+            @Override
+            protected void onPostExecute(GeofenceFormHelper.ValidationResult result) {
+                handleValidationResult(result);
+            }
+        }.execute();
+    }
+
+    /**
+     * Handles the result of location validation.
+     */
+    private void handleValidationResult(GeofenceFormHelper.ValidationResult result) {
+        if (result.isValid()) {
+            // Validation passed - proceed with save
+            proceedWithFormSave();
+        } else {
+            // Validation failed - show error dialog
+            UserRole userRole = LoginActivity.getUserRole(this);
+            boolean canOverride = userRole == UserRole.ADMIN || userRole.isFederalLevel();
+
+            LocationValidationDialogFragment dialog = LocationValidationDialogFragment.newInstance(
+                    result,
+                    canOverride
+            );
+            dialog.show(getSupportFragmentManager(), "location_validation");
+        }
+    }
+
+    /**
+     * Proceeds with the actual form save after validation passes or is overridden.
+     */
+    private void proceedWithFormSave() {
+        if (pendingFormSave) {
+            saveForm(
+                    pendingFormSaveExit,
+                    pendingFormSaveComplete,
+                    pendingFormSaveName,
+                    pendingFormSaveCurrent
+            );
+            resetPendingSaveState();
+        }
+    }
+
+    /**
+     * Resets the pending save state after save completes or is cancelled.
+     */
+    private void resetPendingSaveState() {
+        pendingFormSave = false;
+        pendingFormSaveExit = false;
+        pendingFormSaveComplete = false;
+        pendingFormSaveName = null;
+        pendingFormSaveCurrent = false;
+        locationValidationOverridden = false;
+    }
+
+    /**
+     * Gets the current GPS location from the device.
+     * @return Current location or null if unavailable
+     */
+    private Location getCurrentLocation() {
+        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager == null) {
+            return null;
+        }
+
+        try {
+            // Try GPS first
+            Location gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            if (gpsLocation != null) {
+                return gpsLocation;
+            }
+
+            // Fall back to network location
+            Location networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            return networkLocation;
+        } catch (SecurityException e) {
+            Timber.w(e, "No permission to access location");
+            return null;
+        }
     }
 
     /**
@@ -2193,16 +2330,29 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
     @Override
     public void onOverrideLocation() {
         // Location restriction overridden by admin
-        // TODO: Log override event with timestamp and user information
-        Timber.i("Location restriction overridden by admin user");
-        // Allow form to continue normally
+        Location currentLocation = getCurrentLocation();
+        String locationInfo = "unknown";
+        if (currentLocation != null) {
+            locationInfo = String.format("lat=%.6f, lon=%.6f",
+                currentLocation.getLatitude(), currentLocation.getLongitude());
+        }
+
+        Timber.w("Location validation overridden by admin user. Location: %s, User: %s",
+            locationInfo, LoginActivity.getUserRole(this));
+
+        // Mark that override has been used (for potential audit logging)
+        locationValidationOverridden = true;
+
+        // Allow form to continue normally - validation passed via override
+        showShortToast(this, "Location restriction overridden. Continuing with form.");
     }
 
     @Override
     public void onCancelForm() {
         // User chose to cancel form due to location validation failure
-        Timber.i("Form cancelled due to location validation");
-        finish();
+        Timber.i("Form cancelled due to location validation failure");
+        showShortToast(this, "Form cancelled due to location validation");
+        exit();
     }
 
     /**
@@ -2378,6 +2528,63 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
 
         } catch (Exception e) {
             Timber.e(e, "Error during geofence field auto-population");
+        }
+    }
+
+    /**
+     * Validate user location against role-based restrictions
+     * Shows dialog if state user is outside assigned boundaries
+     */
+    private void validateUserLocation() {
+        try {
+            // Get current GPS location
+            Location currentLocation = getCurrentLocation();
+            if (currentLocation == null) {
+                Timber.d("No GPS location available for validation");
+                return;
+            }
+
+            // Convert to MapPoint
+            final MapPoint mapPoint = new MapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
+
+            // Run validation in background thread to avoid blocking UI
+            scheduler.immediate(
+                // Background task - perform validation
+                () -> {
+                    try {
+                        return GeofenceFormHelper.validateLocationForUserBlocking(this, mapPoint);
+                    } catch (Exception e) {
+                        Timber.e(e, "Error during location validation");
+                        return new GeofenceFormHelper.ValidationResult(
+                            false,
+                            "Error validating location: " + e.getMessage(),
+                            false
+                        );
+                    }
+                },
+                // Foreground callback - handle result on UI thread
+                result -> {
+                    if (!result.isValid()) {
+                        Timber.w("Location validation failed: %s", result.getErrorMessage());
+
+                        // Check if user can override
+                        boolean canOverride = GeofenceFormHelper.canOverrideLocationRestrictions(this);
+
+                        // Show validation dialog
+                        LocationValidationDialogFragment dialog =
+                            LocationValidationDialogFragment.Companion.newInstance(result, canOverride);
+
+                        if (!isFinishing() && !getSupportFragmentManager().isDestroyed()) {
+                            dialog.show(getSupportFragmentManager(), "LocationValidationDialog");
+                        }
+                    } else {
+                        Timber.i("Location validation passed");
+                    }
+                }
+            );
+
+        } catch (Exception e) {
+            Timber.e(e, "Error initiating location validation");
         }
     }
 
@@ -2609,5 +2816,17 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         } else {
             return new HashMap<>();
         }
+    }
+
+    // LocationValidationCallback implementation
+    @Override
+    public void onOverrideLocation() {
+        locationValidationOverridden = true;
+        proceedWithFormSave();
+    }
+
+    @Override
+    public void onCancelForm() {
+        resetPendingSaveState();
     }
 }
