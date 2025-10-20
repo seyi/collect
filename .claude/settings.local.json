@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wsl.exe bash -c:*)",
+      "Bash(mkdir:*)",
+      "Bash(gradlew.bat :collect_app:assembleDebug:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(git log:*)",
+      "Bash(git reset:*)",
+      "Bash(cat:*)",
+      "Bash(git hash-object:*)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'if test \"\"$GIT_COMMIT\"\" = \"\"652548e1dfb1fe5c35746664a12d5a54cb3328ea\"\"; then cat \"\".git/rebase-msg.txt\"\"; else cat; fi' 652548e1df..HEAD)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

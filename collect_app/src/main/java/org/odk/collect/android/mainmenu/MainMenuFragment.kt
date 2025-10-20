@@ -14,6 +14,7 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -32,6 +33,7 @@ import org.odk.collect.android.databinding.MainMenuBinding
 import org.odk.collect.android.formlists.blankformlist.BlankFormListActivity
 import org.odk.collect.android.formmanagement.FormFillingIntentFactory
 import org.odk.collect.android.geofencing.GeoFenceManager
+import org.odk.collect.android.geofencing.GeofenceFormHelper
 import org.odk.collect.android.geofencing.GeofenceType
 import org.odk.collect.android.instancemanagement.send.InstanceUploaderListActivity
 import org.odk.collect.android.projects.ProjectIconView
@@ -219,9 +221,14 @@ class MainMenuFragment(
         binding.enterData.setOnClickListener {
             ActionRegister.actionDetected()
 
-            formEntryFlowLauncher.launch(
-                Intent(requireActivity(), BlankFormListActivity::class.java)
-            )
+            // DEVELOPMENT: Show location dialog before opening form
+            // Dialog will launch form list after user clicks OK
+            showDevelopmentLocationDialog {
+                // Launch form list after dialog is dismissed
+                formEntryFlowLauncher.launch(
+                    Intent(requireActivity(), BlankFormListActivity::class.java)
+                )
+            }
         }
 
         binding.reviewData.setOnClickListener {
@@ -496,6 +503,132 @@ class MainMenuFragment(
             } catch (e: Exception) {
                 Timber.e(e, "Error updating geofence status: ${e.message}")
                 textView.text = "Error"
+            }
+        }
+    }
+
+    /**
+     * DEVELOPMENT ONLY: Show location dialog with GPS coordinates and detected boundaries
+     * TODO: Remove this method in production build or wrap with BuildConfig.DEBUG
+     *
+     * @param onDismiss Callback to execute after dialog is dismissed
+     */
+    private fun showDevelopmentLocationDialog(onDismiss: () -> Unit) {
+        // Check if geofences are loaded
+        val geoFenceManager = GeoFenceManager.getInstance(requireContext())
+        val userState = LoginActivity.getUserState(requireContext())
+
+        if (userState.isNotEmpty() && !geoFenceManager.isStateLoaded(userState)) {
+            // Geofences not loaded yet - show warning
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("⚠️ Geofence Data Not Loaded")
+                .setMessage("Boundary data for $userState is not loaded yet.\n\nPlease wait a moment and try again, or restart the app.")
+                .setPositiveButton("OK") { _, _ -> onDismiss() }
+                .setCancelable(false)
+                .show()
+            return
+        }
+
+        val location = currentLocation
+        if (location == null) {
+            // No GPS available
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("⚠️ No GPS Location")
+                .setMessage("GPS location is not available.\n\nPlease ensure:\n• Location services are enabled\n• App has location permission\n• You are outdoors with clear sky view")
+                .setPositiveButton("OK") { _, _ ->
+                    onDismiss()  // Call callback when OK is clicked
+                }
+                .setCancelable(false)  // Prevent dismissing by tapping outside
+                .show()
+            return
+        }
+
+        // Query geofences in background
+        lifecycleScope.launch {
+            try {
+                val geoFenceManager = GeoFenceManager.getInstance(requireContext())
+                val point = MapPoint(location.latitude, location.longitude)
+
+                // Get containing polygons
+                val polygons = geoFenceManager.getContainingPolygons(point)
+
+                // Get field values
+                val fieldValues = GeofenceFormHelper.autoPopulateLocationFieldsBlocking(
+                    requireContext(),
+                    point
+                )
+
+                // Build dialog message
+                val message = buildString {
+                    append("📍 GPS Coordinates:\n")
+                    append("Latitude: ${String.format("%.6f", location.latitude)}\n")
+                    append("Longitude: ${String.format("%.6f", location.longitude)}\n")
+                    append("Accuracy: ${String.format("%.1f", location.accuracy)} meters\n")
+                    append("\n")
+
+                    append("🗺️ Detected Boundaries:\n")
+                    append("\n")
+
+                    if (fieldValues.isWithinBoundaries) {
+                        append("State:\n")
+                        append("  ${fieldValues.state ?: "Not detected"}\n\n")
+
+                        append("LGA:\n")
+                        append("  ${fieldValues.lga ?: "Not detected"}\n\n")
+
+                        append("Strategic Catchment:\n")
+                        append("  ${fieldValues.strategicCatchment ?: "Not detected"}\n\n")
+
+                        append("Micro Catchment:\n")
+                        append("  ${fieldValues.microCatchment ?: "Not detected"}\n")
+                    } else {
+                        append("❌ Location is outside all mapped boundaries\n")
+                        append("\n")
+                        append("Error: ${fieldValues.errorMessage ?: "Unknown error"}")
+                    }
+
+                    append("\n\n")
+                    append("📊 Total polygons found: ${polygons.size}")
+                }
+
+                // Show dialog on UI thread
+                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle("🌍 Geofence Location Info")
+                    .setMessage(message)
+                    .setPositiveButton("OK") { _, _ ->
+                        onDismiss()  // Call callback when OK is clicked
+                    }
+                    .setNeutralButton("Copy Coordinates") { dialog, _ ->
+                        // Copy coordinates to clipboard
+                        val coords = String.format("%.6f, %.6f",
+                            location.latitude, location.longitude)
+
+                        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE)
+                            as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("GPS Coordinates", coords)
+                        clipboard.setPrimaryClip(clip)
+
+                        Toast.makeText(requireContext(),
+                            "Coordinates copied: $coords",
+                            Toast.LENGTH_SHORT).show()
+
+                        // Don't dismiss dialog - user might want to review info again
+                    }
+                    .setCancelable(false)  // Prevent dismissing by tapping outside
+                    .show()
+
+                Timber.i("Development location dialog shown: lat=${location.latitude}, lon=${location.longitude}")
+
+            } catch (e: Exception) {
+                Timber.e(e, "Error showing development location dialog")
+                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle("❌ Error")
+                    .setMessage("Error getting location information:\n\n${e.message}")
+                    .setPositiveButton("OK") { _, _ ->
+                        onDismiss()  // Call callback even on error
+                    }
+                    .setCancelable(false)
+                    .show()
             }
         }
     }

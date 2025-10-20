@@ -27,6 +27,7 @@ class LocationValidationDialogFragment : DialogFragment() {
         private const val ARG_REQUIRES_OVERRIDE = "requires_override"
         private const val ARG_CAN_OVERRIDE = "can_override"
 
+        @JvmStatic
         fun newInstance(
             validationResult: GeofenceFormHelper.ValidationResult,
             canOverride: Boolean

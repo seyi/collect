@@ -94,11 +94,13 @@ class LoginActivity : AppCompatActivity() {
             )
         }
 
+        @JvmStatic
         fun getUserRole(context: Context): UserRole {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             return UserRole.fromString(prefs.getString(KEY_USER_ROLE, null))
         }
 
+        @JvmStatic
         fun getUserState(context: Context): String {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             return prefs.getString(KEY_USER_STATE, "") ?: ""
@@ -185,7 +187,7 @@ class LoginActivity : AppCompatActivity() {
                         // Authentication successful
                         Timber.d("Azure authentication successful for user: ${result.userData.username}")
                         saveUserSession(result.userData)
-                        navigateToApp()
+                        // Navigation will happen in loadGeofencesForUser() after geofences load
                     }
                     is AuthResult.Error -> {
                         // Authentication failed - try fallback if enabled
@@ -200,7 +202,7 @@ class LoginActivity : AppCompatActivity() {
                             )
                             saveUserSession(fallbackUserData)
                             ToastUtils.showShortToast(this@LoginActivity, "Logged in offline mode")
-                            navigateToApp()
+                            // Navigation will happen in loadGeofencesForUser() after geofences load
                         } else {
                             setLoadingState(false)
                             showError(result.message)
@@ -244,6 +246,8 @@ class LoginActivity : AppCompatActivity() {
 
     private fun loadGeofencesForUser(userData: UserData) {
         lifecycleScope.launch {
+            var loadingDialog: androidx.appcompat.app.AlertDialog? = null
+
             try {
                 Timber.d("Loading geofences for user: ${userData.username}, state: ${userData.state}")
 
@@ -251,48 +255,80 @@ class LoginActivity : AppCompatActivity() {
 
                 // Determine which state(s) to load based on user role
                 val statesToLoad = when (userData.role) {
-                    UserRole.FEDERAL_ADMIN, UserRole.FEDERAL_USER, UserRole.ADMIN -> {
-                        // Load all states for federal users
-                        Timber.d("Federal user detected, loading all states")
-                        null // null means load all states
-                    }
                     UserRole.STATE_ADMIN, UserRole.STATE_USER -> {
                         // Load only user's assigned state
                         if (userData.state.isNotEmpty()) {
                             Timber.d("State user detected, loading state: ${userData.state}")
+
+                            // Show loading dialog
+                            loadingDialog = showGeofenceLoadingDialog(userData.state)
+
                             userData.state
                         } else {
                             Timber.w("State user has no state assigned, skipping geofence loading")
+                            navigateToApp()
                             return@launch
                         }
                     }
-                    UserRole.TEST_USER -> {
-                        // Test users can load all states for testing purposes
-                        Timber.d("Test user detected, loading all states")
-                        null
+                    UserRole.FEDERAL_ADMIN, UserRole.FEDERAL_USER, UserRole.ADMIN, UserRole.TEST_USER -> {
+                        // Federal users don't need to preload all states
+                        // They can load on-demand when needed
+                        Timber.d("Federal/admin user detected, skipping preload")
+                        navigateToApp()
+                        return@launch
                     }
                     UserRole.UNKNOWN -> {
-                        // Unknown role, skip geofence loading
                         Timber.w("Unknown user role, skipping geofence loading")
+                        navigateToApp()
                         return@launch
                     }
                 }
 
-                // Load geofences in background
+                // Load geofences synchronously (blocking UI)
                 val success = geoFenceManager.loadGeofences(statesToLoad)
+
+                // Hide loading dialog
+                loadingDialog?.dismiss()
 
                 if (success) {
                     val stats = geoFenceManager.getCacheStats()
                     Timber.d("Geofences loaded successfully: ${stats.totalPolygons} polygons, " +
                             "${stats.loadedStates.size} states")
+                    ToastUtils.showShortToast(this@LoginActivity,
+                        "Loaded ${stats.totalPolygons} boundaries for ${userData.state}")
                 } else {
                     Timber.w("Failed to load geofences")
+                    ToastUtils.showShortToast(this@LoginActivity,
+                        "Warning: Failed to load boundary data")
                 }
+
+                // Navigate to app AFTER geofences are loaded
+                navigateToApp()
+
             } catch (e: Exception) {
                 Timber.e(e, "Error loading geofences: ${e.message}")
-                // Don't block navigation on geofence loading failure
+
+                // Hide loading dialog on error
+                loadingDialog?.dismiss()
+
+                // Show error but allow navigation
+                ToastUtils.showShortToast(this@LoginActivity,
+                    "Error loading boundaries: ${e.message}")
+
+                navigateToApp()
             }
         }
+    }
+
+    private fun showGeofenceLoadingDialog(state: String): androidx.appcompat.app.AlertDialog {
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Loading Geofence Data")
+            .setMessage("Loading boundary data for $state...\n\nPlease wait.")
+            .setCancelable(false)
+            .create()
+
+        dialog.show()
+        return dialog
     }
 
     private fun performAnonymousLogin() {

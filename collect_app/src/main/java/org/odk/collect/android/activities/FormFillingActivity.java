@@ -131,6 +131,7 @@ import org.odk.collect.android.formentry.saving.SaveFormProgressDialogFragment;
 import org.odk.collect.android.geofencing.GeofenceFormHelper;
 import org.odk.collect.android.geofencing.LocationValidationDialogFragment;
 import org.odk.collect.android.activities.LoginActivity;
+import org.odk.collect.android.authentication.UserRole;
 import org.odk.collect.android.formhierarchy.FormHierarchyActivity;
 import org.odk.collect.android.formhierarchy.ViewOnlyFormHierarchyActivity;
 import org.odk.collect.android.fragments.MediaLoadingFragment;
@@ -1670,31 +1671,6 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         locationValidationOverridden = false;
     }
 
-    /**
-     * Gets the current GPS location from the device.
-     * @return Current location or null if unavailable
-     */
-    private Location getCurrentLocation() {
-        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (locationManager == null) {
-            return null;
-        }
-
-        try {
-            // Try GPS first
-            Location gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            if (gpsLocation != null) {
-                return gpsLocation;
-            }
-
-            // Fall back to network location
-            Location networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-            return networkLocation;
-        } catch (SecurityException e) {
-            Timber.w(e, "No permission to access location");
-            return null;
-        }
-    }
 
     /**
      * Saves data and writes it to disk. If exit is set, program will exit after
@@ -2326,34 +2302,6 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         onDataChanged(items);
     }
 
-    // LocationValidationCallback methods
-    @Override
-    public void onOverrideLocation() {
-        // Location restriction overridden by admin
-        Location currentLocation = getCurrentLocation();
-        String locationInfo = "unknown";
-        if (currentLocation != null) {
-            locationInfo = String.format("lat=%.6f, lon=%.6f",
-                currentLocation.getLatitude(), currentLocation.getLongitude());
-        }
-
-        Timber.w("Location validation overridden by admin user. Location: %s, User: %s",
-            locationInfo, LoginActivity.getUserRole(this));
-
-        // Mark that override has been used (for potential audit logging)
-        locationValidationOverridden = true;
-
-        // Allow form to continue normally - validation passed via override
-        showShortToast(this, "Location restriction overridden. Continuing with form.");
-    }
-
-    @Override
-    public void onCancelForm() {
-        // User chose to cancel form due to location validation failure
-        Timber.i("Form cancelled due to location validation failure");
-        showShortToast(this, "Form cancelled due to location validation");
-        exit();
-    }
 
     /**
      * Get current GPS location from LocationManager
@@ -2524,11 +2472,100 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 final String toastMessage = locationInfo.toString().trim();
                 Timber.i("Showing location toast: %s", toastMessage);
                 runOnUiThread(() -> showLongToast(this, toastMessage));
+
+                // DEVELOPMENT: Uncomment below to show dialog on form field auto-populate
+                // showDevelopmentLocationDialog(currentLocation, fieldValues);
             }
 
         } catch (Exception e) {
             Timber.e(e, "Error during geofence field auto-population");
         }
+    }
+
+    /**
+     * Show development dialog with detailed location information
+     * DEVELOPMENT ONLY - Shows GPS coordinates and all detected geofence boundaries
+     *
+     * @param location Current GPS location
+     * @param fieldValues Detected geofence values
+     */
+    private void showDevelopmentLocationDialog(Location location, GeofenceFormHelper.LocationFieldValues fieldValues) {
+        if (location == null || fieldValues == null) {
+            return;
+        }
+
+        runOnUiThread(() -> {
+            try {
+                // Build detailed information message
+                StringBuilder message = new StringBuilder();
+
+                // GPS Coordinates
+                message.append("📍 GPS Coordinates:\n");
+                message.append(String.format("Latitude: %.6f\n", location.getLatitude()));
+                message.append(String.format("Longitude: %.6f\n", location.getLongitude()));
+                message.append(String.format("Accuracy: %.1f meters\n", location.getAccuracy()));
+                message.append("\n");
+
+                // Detected Boundaries
+                message.append("🗺️ Detected Boundaries:\n");
+                message.append("\n");
+
+                if (fieldValues.getState() != null) {
+                    message.append("State:\n");
+                    message.append("  ").append(fieldValues.getState()).append("\n\n");
+                } else {
+                    message.append("State: Not detected\n\n");
+                }
+
+                if (fieldValues.getLga() != null) {
+                    message.append("LGA:\n");
+                    message.append("  ").append(fieldValues.getLga()).append("\n\n");
+                } else {
+                    message.append("LGA: Not detected\n\n");
+                }
+
+                if (fieldValues.getStrategicCatchment() != null) {
+                    message.append("Strategic Catchment:\n");
+                    message.append("  ").append(fieldValues.getStrategicCatchment()).append("\n\n");
+                } else {
+                    message.append("Strategic Catchment: Not detected\n\n");
+                }
+
+                if (fieldValues.getMicroCatchment() != null) {
+                    message.append("Micro Catchment:\n");
+                    message.append("  ").append(fieldValues.getMicroCatchment()).append("\n");
+                } else {
+                    message.append("Micro Catchment: Not detected");
+                }
+
+                // Show dialog
+                new MaterialAlertDialogBuilder(this)
+                    .setTitle("🌍 Geofence Location Detected")
+                    .setMessage(message.toString())
+                    .setPositiveButton("OK", null)
+                    .setNeutralButton("Copy Coordinates", (dialog, which) -> {
+                        // Copy coordinates to clipboard for easy testing
+                        String coords = String.format("%.6f, %.6f",
+                            location.getLatitude(), location.getLongitude());
+
+                        android.content.ClipboardManager clipboard =
+                            (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        android.content.ClipData clip =
+                            android.content.ClipData.newPlainText("GPS Coordinates", coords);
+                        clipboard.setPrimaryClip(clip);
+
+                        showShortToast(this, "Coordinates copied: " + coords);
+                    })
+                    .setCancelable(true)
+                    .show();
+
+                Timber.i("Development location dialog shown with coordinates: %.6f, %.6f",
+                    location.getLatitude(), location.getLongitude());
+
+            } catch (Exception e) {
+                Timber.e(e, "Error showing development location dialog");
+            }
+        });
     }
 
     /**
@@ -2827,6 +2864,14 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
 
     @Override
     public void onCancelForm() {
+        // User chose to cancel form due to location validation failure
+        Timber.i("Form cancelled due to location validation failure");
         resetPendingSaveState();
+
+        // Show toast message
+        showShortToast(this, "Form cancelled: Location is outside allowed boundaries");
+
+        // Exit the form activity
+        exit();
     }
 }

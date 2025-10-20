@@ -20,7 +20,6 @@ object GeofenceFormHelper {
         val lga: String? = null,
         val strategicCatchment: String? = null,
         val microCatchment: String? = null,
-        val intervention: String? = null,
         val isWithinBoundaries: Boolean = false,
         val errorMessage: String? = null
     )
@@ -59,19 +58,17 @@ object GeofenceFormHelper {
                 )
             }
 
-            // Extract different polygon types
+            // Extract different polygon types (excluding Intervention Site)
             val state = polygons.find { it.type == GeofenceType.STATE }
             val lga = polygons.find { it.type == GeofenceType.LGA }
             val strategicCatchment = polygons.find { it.type == GeofenceType.STRATEGIC_CATCHMENT }
             val microCatchment = polygons.find { it.type == GeofenceType.MICRO_CATCHMENT }
-            val intervention = polygons.find { it.type == GeofenceType.INTERVENTION }
 
             return LocationFieldValues(
                 state = state?.name,
                 lga = lga?.name,
                 strategicCatchment = strategicCatchment?.name,
                 microCatchment = microCatchment?.name,
-                intervention = intervention?.name,
                 isWithinBoundaries = true
             )
         } catch (e: Exception) {
@@ -98,13 +95,14 @@ object GeofenceFormHelper {
     }
 
     /**
-     * Validate location against user role restrictions
+     * Validate location against user role restrictions (blocking version for Java)
      *
      * @param context Android context
      * @param location Current GPS location
      * @return ValidationResult indicating if location is valid for user
      */
-    suspend fun validateLocationForUser(
+    @JvmStatic
+    fun validateLocationForUserBlocking(
         context: Context,
         location: MapPoint
     ): ValidationResult {
@@ -127,7 +125,7 @@ object GeofenceFormHelper {
                     )
                 }
 
-                val fieldValues = autoPopulateLocationFields(context, location)
+                val fieldValues = autoPopulateLocationFieldsBlocking(context, location)
 
                 if (!fieldValues.isWithinBoundaries) {
                     return ValidationResult(
@@ -163,11 +161,26 @@ object GeofenceFormHelper {
     }
 
     /**
+     * Validate location against user role restrictions (suspend version for Kotlin)
+     *
+     * @param context Android context
+     * @param location Current GPS location
+     * @return ValidationResult indicating if location is valid for user
+     */
+    suspend fun validateLocationForUser(
+        context: Context,
+        location: MapPoint
+    ): ValidationResult {
+        return validateLocationForUserBlocking(context, location)
+    }
+
+    /**
      * Check if user can override location restrictions
      *
      * @param context Android context
      * @return True if user has override privileges
      */
+    @JvmStatic
     fun canOverrideLocationRestrictions(context: Context): Boolean {
         val userRole = LoginActivity.getUserRole(context)
         return userRole == UserRole.FEDERAL_ADMIN || userRole == UserRole.ADMIN
@@ -182,7 +195,6 @@ object GeofenceFormHelper {
             "lga", "lga_name" -> "LGA"
             "strategic_catchment", "scatchment" -> "Strategic Catchment"
             "micro_catchment", "mcatchment" -> "Micro Catchment"
-            "intervention", "intervention_site" -> "Intervention Site"
             else -> fieldName.replace("_", " ").replaceFirstChar { it.uppercase() }
         }
     }
@@ -190,6 +202,7 @@ object GeofenceFormHelper {
     /**
      * Map field values to form field names
      * Common field name variations handled
+     * Note: Intervention Site fields are no longer auto-populated
      */
     fun mapFieldValue(fieldName: String, fieldValues: LocationFieldValues): String? {
         // Normalize field name: trim, lowercase, remove extra spaces
@@ -213,10 +226,6 @@ object GeofenceFormHelper {
             "micro_catchment", "micro catchment",
             "mcatchment", "m_catchment", "m catchment",
             "microcatchment" -> fieldValues.microCatchment
-
-            // Intervention variations
-            "intervention", "intervention_site", "intervention site",
-            "interv_site", "interv site", "interventionsite" -> fieldValues.intervention
 
             else -> null
         }

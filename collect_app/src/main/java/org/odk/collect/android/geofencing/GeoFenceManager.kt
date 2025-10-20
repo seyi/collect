@@ -32,6 +32,8 @@ class GeoFenceManager private constructor(private val context: Context) {
 
         // Asset directory structure
         private const val GEOFENCING_DIR = "geofencing"
+        private const val STATE_BOUNDARY_SUFFIX = "_state_boundary.geojson"
+        private const val LGA_BOUNDARIES_SUFFIX = "_lga_boundaries.geojson"
         private const val STRATEGIC_CATCHMENTS_SUFFIX = "_strategic_catchments.geojson"
         private const val MICRO_CATCHMENTS_SUFFIX = "_micro_catchments.geojson"
         private const val INTERVENTIONS_SUFFIX = "_interventions.geojson"
@@ -53,15 +55,16 @@ class GeoFenceManager private constructor(private val context: Context) {
      * Load geofences from assets
      *
      * @param state State name to load, or null to load all states
-     * @param types Types of geofences to load (default: all types)
+     * @param types Types of geofences to load (default: all types except INTERVENTION)
      * @return true if successful, false if any errors occurred
      */
     suspend fun loadGeofences(
         state: String? = null,
         types: List<GeofenceType> = listOf(
+            GeofenceType.STATE,
+            GeofenceType.LGA,
             GeofenceType.STRATEGIC_CATCHMENT,
-            GeofenceType.MICRO_CATCHMENT,
-            GeofenceType.INTERVENTION
+            GeofenceType.MICRO_CATCHMENT
         )
     ): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -83,10 +86,22 @@ class GeoFenceManager private constructor(private val context: Context) {
                             val cacheKey = getCacheKey(stateName, type)
                             polygonCache[cacheKey] = polygons
                             Timber.d("Loaded ${polygons.size} $type polygons for $stateName")
+                        } else {
+                            // STATE, Strategic Catchment, and Micro Catchment are REQUIRED
+                            // LGA is OPTIONAL
+                            if (type == GeofenceType.LGA) {
+                                Timber.d("Optional LGA polygons not found for $stateName (this is OK)")
+                            } else {
+                                Timber.w("Critical: $type not found for $stateName")
+                                hasErrors = true
+                            }
                         }
                     } catch (e: Exception) {
                         Timber.e(e, "Error loading $type for $stateName")
-                        hasErrors = true
+                        // Only LGA is optional, all others are required
+                        if (type != GeofenceType.LGA) {
+                            hasErrors = true
+                        }
                     }
                 }
 
@@ -113,13 +128,11 @@ class GeoFenceManager private constructor(private val context: Context) {
         type: GeofenceType
     ): List<GeoFencePolygon> {
         val fileName = when (type) {
+            GeofenceType.STATE -> "$state$STATE_BOUNDARY_SUFFIX"
+            GeofenceType.LGA -> "$state$LGA_BOUNDARIES_SUFFIX"
             GeofenceType.STRATEGIC_CATCHMENT -> "$state$STRATEGIC_CATCHMENTS_SUFFIX"
             GeofenceType.MICRO_CATCHMENT -> "$state$MICRO_CATCHMENTS_SUFFIX"
             GeofenceType.INTERVENTION -> "$state$INTERVENTIONS_SUFFIX"
-            else -> {
-                Timber.w("Unsupported type for asset loading: $type")
-                return emptyList()
-            }
         }
 
         val assetPath = "$GEOFENCING_DIR/$state/$fileName"

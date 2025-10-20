@@ -164,7 +164,7 @@ class GeoJsonParser {
     /**
      * Extract name from properties
      *
-     * Tries multiple field names: NAME, Name, name
+     * Tries multiple field names based on geofence type
      *
      * @param properties The properties map
      * @param type The geofence type
@@ -174,11 +174,53 @@ class GeoJsonParser {
         properties: Map<String, Any>,
         type: GeofenceType
     ): String {
-        val nameValue = properties["NAME"]
-            ?: properties["Name"]
-            ?: properties["name"]
-            ?: properties["NUMB"]
-            ?: properties["Id"]
+        // Try type-specific field names first
+        val nameValue = when (type) {
+            GeofenceType.MICRO_CATCHMENT -> {
+                // Try micro catchment specific fields
+                properties["Micr_Catch"]
+                    ?: properties["Micro_Catchment"]
+                    ?: properties["micro_catchment"]
+                    ?: properties["NAME"]
+                    ?: properties["Name"]
+                    ?: properties["name"]
+            }
+            GeofenceType.STRATEGIC_CATCHMENT -> {
+                // Try strategic catchment specific fields
+                properties["Stra_Catch"]
+                    ?: properties["Strategic_Catchment"]
+                    ?: properties["strategic_catchment"]
+                    ?: properties["NAME"]
+                    ?: properties["Name"]
+                    ?: properties["name"]
+            }
+            GeofenceType.STATE -> {
+                // Try state specific fields
+                properties["state_name"]
+                    ?: properties["State"]
+                    ?: properties["STATE"]
+                    ?: properties["state"]
+                    ?: properties["NAME"]
+                    ?: properties["Name"]
+                    ?: properties["name"]
+            }
+            GeofenceType.LGA -> {
+                // Try LGA specific fields
+                properties["LGA"]
+                    ?: properties["lga"]
+                    ?: properties["NAME"]
+                    ?: properties["Name"]
+                    ?: properties["name"]
+            }
+            else -> {
+                // Default: try generic name fields
+                properties["NAME"]
+                    ?: properties["Name"]
+                    ?: properties["name"]
+                    ?: properties["NUMB"]
+                    ?: properties["Id"]
+            }
+        }
 
         return nameValue?.toString() ?: "Unnamed ${type.name}"
     }
