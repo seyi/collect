@@ -153,7 +153,8 @@ public class ODKView extends SwipeHandler.View implements OnLongClickListener, W
             PrinterWidgetViewModel printerWidgetViewModel,
             InternalRecordingRequester internalRecordingRequester,
             ExternalAppRecordingRequester externalAppRecordingRequester,
-            AudioHelper audioHelper
+            AudioHelper audioHelper,
+            java.util.Set<String> readOnlyQuestions
     ) {
         super(context);
         viewLifecycle = ((ScreenContext) context).getViewLifecycle();
@@ -196,7 +197,8 @@ public class ODKView extends SwipeHandler.View implements OnLongClickListener, W
                 new FileRequesterImpl(intentLauncher, externalAppIntentProvider, formController),
                 new StringRequesterImpl(intentLauncher, externalAppIntentProvider, formController),
                 formController,
-                (FormFillingActivity) context
+                (FormFillingActivity) context,
+                readOnlyQuestions
         );
 
         widgets = new ArrayList<>();
@@ -213,6 +215,16 @@ public class ODKView extends SwipeHandler.View implements OnLongClickListener, W
 
         setupAudioErrors();
         autoplayIfNeeded(advancingPage);
+    }
+
+    /**
+     * Get the WidgetFactory used by this view
+     * Used for setting per-question read-only overrides
+     *
+     * @return The WidgetFactory instance
+     */
+    public WidgetFactory getWidgetFactory() {
+        return widgetFactory;
     }
 
     private void setupAudioErrors() {

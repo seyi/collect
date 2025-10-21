@@ -345,25 +345,22 @@ class MainMenuFragment(
                 return
             }
 
-            // Load geofences for all Nigerian states
+            // Check if geofences need to be loaded
             lifecycleScope.launch {
                 try {
                     val geoFenceManager = GeoFenceManager.getInstance(requireContext())
+                    val userState = LoginActivity.getUserState(requireContext())
 
-                    // Load geofences for all 20 states
-                    val states = listOf(
-                        "Adamawa", "Bauchi", "Benue", "Borno", "Fct", "Gombe",
-                        "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi",
-                        "Kwara", "Nasarawa", "Niger", "Plateau", "Sokoto",
-                        "Taraba", "Yobe", "Zamfara"
-                    )
-
-                    states.forEach { state ->
-                        geoFenceManager.loadGeofences(state)
-                        Timber.d("Loaded geofences for $state")
+                    // Only load if user has a state and it's not already loaded
+                    if (userState.isNotEmpty() && !geoFenceManager.isStateLoaded(userState)) {
+                        Timber.d("Loading geofences for user's state: $userState")
+                        geoFenceManager.loadGeofences(userState)
+                        Timber.i("Geofences loaded for $userState")
+                    } else if (userState.isNotEmpty()) {
+                        Timber.d("Geofences already loaded for $userState")
+                    } else {
+                        Timber.d("No user state assigned, skipping geofence loading")
                     }
-
-                    Timber.i("All geofences loaded successfully")
                 } catch (e: Exception) {
                     Timber.e(e, "Error loading geofences: ${e.message}")
                 }
@@ -548,6 +545,17 @@ class MainMenuFragment(
             try {
                 val geoFenceManager = GeoFenceManager.getInstance(requireContext())
                 val point = MapPoint(location.latitude, location.longitude)
+
+                // Log cache stats to help debug loading issues
+                val stats = geoFenceManager.getCacheStats()
+                Timber.d("Cache stats: ${stats.loadedStates.size} states loaded, ${stats.totalPolygons} total polygons")
+                stats.loadedStates.forEach { state ->
+                    val statePolys = geoFenceManager.getPolygonsForState(state, GeofenceType.STATE).size
+                    val lgaPolys = geoFenceManager.getPolygonsForState(state, GeofenceType.LGA).size
+                    val scPolys = geoFenceManager.getPolygonsForState(state, GeofenceType.STRATEGIC_CATCHMENT).size
+                    val mcPolys = geoFenceManager.getPolygonsForState(state, GeofenceType.MICRO_CATCHMENT).size
+                    Timber.d("  $state: STATE=$statePolys, LGA=$lgaPolys, SC=$scPolys, MC=$mcPolys")
+                }
 
                 // Get containing polygons
                 val polygons = geoFenceManager.getContainingPolygons(point)

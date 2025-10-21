@@ -146,6 +146,8 @@ class GeoJsonParser {
             ?: properties["fid"]
             ?: properties["OBJECTID"]
             ?: properties["objectid"]
+            ?: properties["OBJECTID_1"]
+            ?: properties["objectid_1"]
 
         val idStr = idValue?.toString() ?: "unknown"
 

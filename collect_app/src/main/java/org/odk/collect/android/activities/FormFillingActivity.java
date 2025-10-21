@@ -291,6 +291,9 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
     private String pendingFormSaveName = null;
     private boolean pendingFormSaveCurrent = false;
 
+    // Track auto-populated geofence fields for read-only enforcement
+    private final java.util.Set<String> autoPopulatedFields = new java.util.HashSet<>();
+
     private TextView nextButton;
     private TextView backButton;
 
@@ -1140,6 +1143,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
 
                     odkView = createODKView(advancingPage, prompts, groups);
                     odkView.setWidgetValueChangedListener(this);
+
                     Timber.i("Created view for group %s %s",
                             groups.length > 0 ? groups[groups.length - 1].getLongText() : "[top]",
                             prompts.length > 0 ? prompts[0].getQuestionText() : "[no question]");
@@ -1191,7 +1195,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 odkViewLifecycle
         );
 
-        return new ODKView(this, prompts, groups, advancingPage, formSaveViewModel, waitingForDataRegistry, viewModelAudioPlayer, audioRecorder, formEntryViewModel, printerWidgetViewModel, internalRecordingRequester, externalAppRecordingRequester, audioHelperFactory.create(this));
+        return new ODKView(this, prompts, groups, advancingPage, formSaveViewModel, waitingForDataRegistry, viewModelAudioPlayer, audioRecorder, formEntryViewModel, printerWidgetViewModel, internalRecordingRequester, externalAppRecordingRequester, audioHelperFactory.create(this), autoPopulatedFields);
     }
 
     @Override
@@ -2352,6 +2356,9 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
             return;
         }
 
+        // Don't clear autoPopulatedFields - we need to preserve them across page navigations
+        // The set persists for the entire form session to keep all auto-populated fields read-only
+
         try {
             // Get current GPS location
             Location currentLocation = getCurrentLocation();
@@ -2440,6 +2447,15 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                         if (answerData != null) {
                             // Save the answer to the form
                             formController.saveAnswer(prompt.getIndex(), answerData);
+
+                            // Track this field as auto-populated (for read-only enforcement)
+                            // Only track State, Strategic Catchment, and Micro Catchment
+                            String normalizedName = questionText.trim().toLowerCase().replaceAll("\\s+", " ");
+                            if (normalizedName.contains("state") ||
+                                    normalizedName.contains("catchment")) {
+                                autoPopulatedFields.add(questionText);
+                                Timber.d("Marked field '%s' as auto-populated (will be read-only)", questionText);
+                            }
 
                             populatedCount++;
                             Timber.i("Auto-populated field '%s' with value '%s'", questionText, value);

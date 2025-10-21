@@ -59,10 +59,17 @@ object GeofenceFormHelper {
             }
 
             // Extract different polygon types (excluding Intervention Site)
+            Timber.d("Found ${polygons.size} polygons at location")
+            polygons.forEach { polygon ->
+                Timber.d("  - ${polygon.type}: ${polygon.name} (${polygon.id})")
+            }
+
             val state = polygons.find { it.type == GeofenceType.STATE }
             val lga = polygons.find { it.type == GeofenceType.LGA }
             val strategicCatchment = polygons.find { it.type == GeofenceType.STRATEGIC_CATCHMENT }
             val microCatchment = polygons.find { it.type == GeofenceType.MICRO_CATCHMENT }
+
+            Timber.d("Extracted: State=${state?.name}, LGA=${lga?.name}, Strategic=${strategicCatchment?.name}, Micro=${microCatchment?.name}")
 
             return LocationFieldValues(
                 state = state?.name,

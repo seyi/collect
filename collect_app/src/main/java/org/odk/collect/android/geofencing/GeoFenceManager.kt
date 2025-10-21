@@ -86,6 +86,13 @@ class GeoFenceManager private constructor(private val context: Context) {
                             val cacheKey = getCacheKey(stateName, type)
                             polygonCache[cacheKey] = polygons
                             Timber.d("Loaded ${polygons.size} $type polygons for $stateName")
+
+                            // Debug: Log micro catchment names
+                            if (type == GeofenceType.MICRO_CATCHMENT) {
+                                polygons.forEach { poly ->
+                                    Timber.d("  Micro catchment: ${poly.name} (${poly.id})")
+                                }
+                            }
                         } else {
                             // STATE, Strategic Catchment, and Micro Catchment are REQUIRED
                             // LGA is OPTIONAL
@@ -162,12 +169,21 @@ class GeoFenceManager private constructor(private val context: Context) {
     ): List<GeoFencePolygon> {
         val results = mutableListOf<GeoFencePolygon>()
 
+        // Debug: Log cache state
+        Timber.d("Cache contains ${polygonCache.size} keys, checking point (${point.latitude}, ${point.longitude})")
+
         polygonCache.values.forEach { polygons ->
             polygons.forEach { polygon ->
                 // Filter by type if specified
                 if (types == null || polygon.type in types) {
                     if (polygon.contains(point)) {
                         results.add(polygon)
+                        Timber.d("Point is inside ${polygon.type}: ${polygon.name}")
+                    } else {
+                        // Debug: Log why micro catchments aren't matching
+                        if (polygon.type == GeofenceType.MICRO_CATCHMENT) {
+                            Timber.d("Point is OUTSIDE ${polygon.type}: ${polygon.name} (${polygon.state})")
+                        }
                     }
                 }
             }

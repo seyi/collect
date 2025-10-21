@@ -254,7 +254,7 @@ class LoginActivity : AppCompatActivity() {
                 val geoFenceManager = GeoFenceManager.getInstance(this@LoginActivity)
 
                 // Determine which state(s) to load based on user role
-                val statesToLoad = when (userData.role) {
+                when (userData.role) {
                     UserRole.STATE_ADMIN, UserRole.STATE_USER -> {
                         // Load only user's assigned state
                         if (userData.state.isNotEmpty()) {
@@ -263,17 +263,69 @@ class LoginActivity : AppCompatActivity() {
                             // Show loading dialog
                             loadingDialog = showGeofenceLoadingDialog(userData.state)
 
-                            userData.state
+                            // Load single state
+                            val success = geoFenceManager.loadGeofences(userData.state)
+
+                            // Hide loading dialog
+                            loadingDialog?.dismiss()
+
+                            if (success) {
+                                val stats = geoFenceManager.getCacheStats()
+                                Timber.d("Geofences loaded successfully: ${stats.totalPolygons} polygons")
+                                ToastUtils.showShortToast(this@LoginActivity,
+                                    "Loaded ${stats.totalPolygons} boundaries for ${userData.state}")
+                            } else {
+                                Timber.w("Failed to load geofences for ${userData.state}")
+                                ToastUtils.showShortToast(this@LoginActivity,
+                                    "Warning: Failed to load boundary data")
+                            }
+
+                            // Navigate to app
+                            navigateToApp()
+                            return@launch
                         } else {
                             Timber.w("State user has no state assigned, skipping geofence loading")
                             navigateToApp()
                             return@launch
                         }
                     }
-                    UserRole.FEDERAL_ADMIN, UserRole.FEDERAL_USER, UserRole.ADMIN, UserRole.TEST_USER -> {
-                        // Federal users don't need to preload all states
+                    UserRole.FEDERAL_ADMIN, UserRole.ADMIN -> {
+                        // Federal admin users load ALL states
+                        Timber.d("Federal admin user detected, loading all states")
+
+                        // Show loading dialog
+                        loadingDialog = androidx.appcompat.app.AlertDialog.Builder(this@LoginActivity)
+                            .setTitle("Loading Geofence Data")
+                            .setMessage("Loading boundary data for all states...\n\nThis may take a moment.")
+                            .setCancelable(false)
+                            .create()
+                        loadingDialog?.show()
+
+                        // Load all states (null = load all)
+                        val success = geoFenceManager.loadGeofences(null)
+
+                        // Hide loading dialog
+                        loadingDialog?.dismiss()
+
+                        if (success) {
+                            val stats = geoFenceManager.getCacheStats()
+                            Timber.d("All geofences loaded successfully: ${stats.totalPolygons} polygons for ${stats.loadedStates.size} states")
+                            ToastUtils.showShortToast(this@LoginActivity,
+                                "Loaded ${stats.totalPolygons} boundaries for all states")
+                        } else {
+                            Timber.w("Failed to load some geofences")
+                            ToastUtils.showShortToast(this@LoginActivity,
+                                "Warning: Failed to load some boundary data")
+                        }
+
+                        // Navigate to app
+                        navigateToApp()
+                        return@launch
+                    }
+                    UserRole.FEDERAL_USER, UserRole.TEST_USER -> {
+                        // Federal users don't need to preload
                         // They can load on-demand when needed
-                        Timber.d("Federal/admin user detected, skipping preload")
+                        Timber.d("Federal user detected, skipping preload")
                         navigateToApp()
                         return@launch
                     }
@@ -283,28 +335,6 @@ class LoginActivity : AppCompatActivity() {
                         return@launch
                     }
                 }
-
-                // Load geofences synchronously (blocking UI)
-                val success = geoFenceManager.loadGeofences(statesToLoad)
-
-                // Hide loading dialog
-                loadingDialog?.dismiss()
-
-                if (success) {
-                    val stats = geoFenceManager.getCacheStats()
-                    Timber.d("Geofences loaded successfully: ${stats.totalPolygons} polygons, " +
-                            "${stats.loadedStates.size} states")
-                    ToastUtils.showShortToast(this@LoginActivity,
-                        "Loaded ${stats.totalPolygons} boundaries for ${userData.state}")
-                } else {
-                    Timber.w("Failed to load geofences")
-                    ToastUtils.showShortToast(this@LoginActivity,
-                        "Warning: Failed to load boundary data")
-                }
-
-                // Navigate to app AFTER geofences are loaded
-                navigateToApp()
-
             } catch (e: Exception) {
                 Timber.e(e, "Error loading geofences: ${e.message}")
 
