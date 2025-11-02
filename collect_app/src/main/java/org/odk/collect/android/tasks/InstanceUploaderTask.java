@@ -17,6 +17,7 @@ package org.odk.collect.android.tasks;
 import static org.odk.collect.android.analytics.AnalyticsEvents.SUBMISSION;
 import static org.odk.collect.strings.localization.LocalizedApplicationKt.getLocalizedString;
 
+import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
 
@@ -34,6 +35,8 @@ import org.odk.collect.android.upload.InstanceServerUploader;
 import org.odk.collect.android.utilities.InstanceAutoDeleteChecker;
 import org.odk.collect.android.utilities.InstancesRepositoryProvider;
 import org.odk.collect.android.utilities.WebCredentialsUtils;
+import org.odk.collect.android.cosmosdb.PendingSubmissionStore;
+import org.odk.collect.android.cosmosdb.CosmosDbSyncScheduler;
 import org.odk.collect.forms.FormsRepository;
 import org.odk.collect.forms.instances.Instance;
 import org.odk.collect.forms.instances.InstancesRepository;
@@ -119,6 +122,9 @@ public class InstanceUploaderTask extends AsyncTask<Long, Integer, InstanceUploa
                         customMessage != null ? customMessage : getLocalizedString(Collect.getInstance(), org.odk.collect.strings.R.string.success));
 
                 Analytics.log(SUBMISSION, "HTTP", Collect.getFormIdentifierHash(instance.getFormId(), instance.getFormVersion()));
+
+                // Sync to Cosmos DB after successful upload to server
+                syncToCosmosDb(instance);
             } catch (FormUploadAuthRequestedException e) {
                 outcome.authRequestingServer = e.getAuthRequestingServer();
                 // Don't add the instance that caused an auth request to the map because we want to
@@ -272,5 +278,41 @@ public class InstanceUploaderTask extends AsyncTask<Long, Integer, InstanceUploa
          * instead of a mix of localized and non-localized user-facing strings.
          */
         public HashMap<String, String> messagesByInstanceId = new HashMap<>();
+    }
+
+    /**
+     * Sync successfully uploaded submission to Azure Cosmos DB
+     */
+    private void syncToCosmosDb(Instance instance) {
+        try {
+            timber.log.Timber.d("Queueing successfully uploaded submission for Cosmos DB sync: " + instance.getInstanceFilePath());
+
+            Context context = Collect.getInstance().getApplicationContext();
+
+            // Get required services
+            PendingSubmissionStore pendingStore = PendingSubmissionStore.getInstance(context);
+            CosmosDbSyncScheduler scheduler = CosmosDbSyncScheduler.getInstance(context);
+
+            // Generate submission ID
+            String submissionId = "odk_" + System.currentTimeMillis() + "_" + (int)(Math.random() * 999999);
+
+            // Add to pending queue with instance details
+            pendingStore.addPending(
+                submissionId,
+                instance.getInstanceFilePath(),
+                instance.getFormId(),
+                "Unknown"  // State will be extracted during sync
+            );
+
+            timber.log.Timber.d("Added uploaded submission to Cosmos DB queue: " + submissionId);
+
+            // Schedule immediate sync
+            scheduler.scheduleImmediateSync(submissionId);
+
+            timber.log.Timber.i("Cosmos DB sync scheduled for uploaded submission: " + submissionId);
+        } catch (Exception e) {
+            timber.log.Timber.e(e, "Error queuing Cosmos DB sync for uploaded submission");
+            // Don't fail the upload if Cosmos DB sync fails
+        }
     }
 }

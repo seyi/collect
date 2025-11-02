@@ -5,6 +5,7 @@ import static org.odk.collect.android.tasks.SaveFormToDisk.SAVED_AND_EXIT;
 import static org.odk.collect.android.tasks.SaveFormToDisk.SAVE_ERROR;
 import static org.odk.collect.shared.strings.StringUtils.isBlank;
 
+import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
 
@@ -43,6 +44,10 @@ import org.odk.collect.forms.savepoints.SavepointsRepository;
 import org.odk.collect.material.MaterialProgressDialogFragment;
 import org.odk.collect.shared.strings.Md5;
 import org.odk.collect.utilities.Result;
+import org.odk.collect.android.cosmosdb.SubmissionSyncService;
+import org.odk.collect.android.cosmosdb.SyncResult;
+import org.odk.collect.android.cosmosdb.PendingSubmissionStore;
+import org.odk.collect.android.cosmosdb.CosmosDbSyncScheduler;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -275,6 +280,9 @@ public class FormSaveViewModel extends ViewModel implements MaterialProgressDial
                         formController.getAuditEventLogger().logEvent(AuditEvent.AuditEventType.FORM_FINALIZE, true, clock.get());
 
                         instancesDataService.instanceFinalized(projectsDataService.getCurrentProject().getUuid(), form);
+
+                        // Trigger Cosmos DB sync for finalized submissions
+                        syncToCosmosDb(formController);
                     } else {
                         formController.getAuditEventLogger().logEvent(AuditEvent.AuditEventType.FORM_EXIT, true, clock.get());
                     }
@@ -304,6 +312,52 @@ public class FormSaveViewModel extends ViewModel implements MaterialProgressDial
                 saveResult.setValue(new SaveResult(SaveResult.State.CONSTRAINT_ERROR, saveRequest, taskResult.getSaveErrorMessage()));
                 break;
             }
+        }
+    }
+
+    /**
+     * Sync finalized submission to Azure Cosmos DB
+     * Queues the submission and triggers immediate background sync
+     */
+    private void syncToCosmosDb(FormController formController) {
+        if (formController == null) {
+            return;
+        }
+
+        // Queue the submission and trigger immediate sync
+        try {
+            timber.log.Timber.d("Queuing submission for Cosmos DB sync");
+
+            Context context = Collect.getInstance().getApplicationContext();
+
+            // Get required services
+            PendingSubmissionStore pendingStore = PendingSubmissionStore.getInstance(context);
+            CosmosDbSyncScheduler scheduler = CosmosDbSyncScheduler.getInstance(context);
+
+            // Generate submission ID
+            String submissionId = "odk_" + System.currentTimeMillis() + "_" +
+                                 (int)(Math.random() * 999999);
+
+            // Get instance path and form ID
+            String instancePath = formController.getAbsoluteInstancePath();
+            String formId = formController.getFormDef() != null &&
+                          formController.getFormDef().getMainInstance() != null ?
+                          formController.getFormDef().getMainInstance().getName() : "unknown";
+
+            // Get state (from geofence data if available)
+            String state = "Unknown";  // Default, will be extracted during sync
+
+            // Add to pending queue
+            pendingStore.addPending(submissionId, instancePath, formId, state);
+            timber.log.Timber.d("Added submission to pending queue: " + submissionId);
+
+            // Schedule immediate one-time sync for this specific submission
+            scheduler.scheduleImmediateSync(submissionId);
+
+            timber.log.Timber.i("Cosmos DB sync queued and scheduled for: " + submissionId);
+        } catch (Exception e) {
+            timber.log.Timber.e(e, "Error queuing Cosmos DB sync");
+            // Don't fail the form save if sync scheduling fails
         }
     }
 

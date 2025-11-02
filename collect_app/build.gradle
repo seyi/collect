@@ -165,10 +165,10 @@ android {
     packaging {
         resources {
             // These library licenses will be referenced in-app
-            excludes += ['META-INF/ASL-2.0.txt', 'META-INF/LGPL-3.0.txt']
+            excludes += ['META-INF/ASL-2.0.txt', 'META-INF/LGPL-3.0.txt', 'META-INF/INDEX.LIST']
 
-            // Pick first occurrence of any files that cause conflicts
-            pickFirsts += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt', 'META-INF/services/com.fasterxml.jackson.core.JsonFactory', 'META-INF/services/com.fasterxml.jackson.core.ObjectCodec', 'META-INF/services/javax.ws.rs.ext.MessageBodyReader', 'META-INF/services/javax.ws.rs.ext.MessageBodyWriter', 'draftv4/schema', 'draftv3/schema']
+            // Pick first occurrence of any files that cause conflicts (including Azure Cosmos DB / Netty conflicts)
+            pickFirsts += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt', 'META-INF/services/com.fasterxml.jackson.core.JsonFactory', 'META-INF/services/com.fasterxml.jackson.core.ObjectCodec', 'META-INF/services/javax.ws.rs.ext.MessageBodyReader', 'META-INF/services/javax.ws.rs.ext.MessageBodyWriter', 'draftv4/schema', 'draftv3/schema', 'META-INF/io.netty.versions.properties']
         }
 
         // To ensure that ODK Collect is installable on all devices, we don't use
@@ -226,9 +226,6 @@ configurations.all {
         cacheChangingModulesFor(0, 'seconds')
 
         force 'org.objenesis:objenesis:2.6'
-
-        // Newer Jackson versions cannot be ued until Collect minSDK >= 26 (https://github.com/FasterXML/jackson-databind#android)
-        force 'com.fasterxml.jackson.core:jackson-databind:2.13.5'
     }
     
     transitive = true
@@ -304,7 +301,16 @@ dependencies {
     implementation libs.squareupOkhttp
     implementation libs.squareupOkhttpTls
     implementation libs.burgstallerOkhttpDigest
-    
+
+    // Gson for JSON serialization (used by Cosmos DB API client)
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // Kotlin Coroutines for async operations
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    // AndroidX Security for encrypted storage (used by CosmosDbConfig)
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+
     implementation libs.persianJodaTime
     implementation libs.myanmarCalendar
     implementation libs.bikramSambat
