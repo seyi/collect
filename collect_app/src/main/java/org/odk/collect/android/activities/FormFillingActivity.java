@@ -2409,24 +2409,4 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
             return new HashMap<>();
         }
     }
-
-    // LocationValidationCallback implementation
-    @Override
-    public void onOverrideLocation() {
-        locationValidationOverridden = true;
-        proceedWithFormSave();
-    }
-
-    @Override
-    public void onCancelForm() {
-        // User chose to cancel form due to location validation failure
-        Timber.i("Form cancelled due to location validation failure");
-        resetPendingSaveState();
-
-        // Show toast message
-        showShortToast(this, "Form cancelled: Location is outside allowed boundaries");
-
-        // Exit the form activity
-        exit();
-    }
 }

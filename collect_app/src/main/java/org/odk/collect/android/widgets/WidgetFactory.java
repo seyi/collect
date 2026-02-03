@@ -95,10 +95,6 @@ public class WidgetFactory {
     private final FormController formController;
     private final AdvanceToNextListener advanceToNextListener;
 
-    // Set of question texts that should be read-only (for geofence auto-populated fields)
-    // This is now passed in from FormFillingActivity to persist across pages
-    private final java.util.Set<String> readOnlyQuestions;
-
     public WidgetFactory(Activity activity,
                          boolean readOnlyOverride,
                          boolean useExternalRecorder,
@@ -113,8 +109,7 @@ public class WidgetFactory {
                          FileRequester fileRequester,
                          StringRequester stringRequester,
                          FormController formController,
-                         AdvanceToNextListener advanceToNextListener,
-                         java.util.Set<String> readOnlyQuestions
+                         AdvanceToNextListener advanceToNextListener
     ) {
         this.activity = activity;
         this.readOnlyOverride = readOnlyOverride;
@@ -131,43 +126,12 @@ public class WidgetFactory {
         this.stringRequester = stringRequester;
         this.formController = formController;
         this.advanceToNextListener = advanceToNextListener;
-        this.readOnlyQuestions = readOnlyQuestions;
-    }
-
-    /**
-     * Mark a question as read-only based on its question text
-     * Used for geofence auto-populated fields
-     *
-     * @param questionText The text of the question to mark as read-only
-     */
-    public void markQuestionAsReadOnly(String questionText) {
-        if (questionText != null && !questionText.isEmpty()) {
-            readOnlyQuestions.add(questionText);
-            timber.log.Timber.d("WidgetFactory.markQuestionAsReadOnly: Added '%s' to readOnlyQuestions (set now has %d items)", questionText, readOnlyQuestions.size());
-        }
-    }
-
-    /**
-     * Clear all read-only question overrides
-     */
-    public void clearReadOnlyQuestions() {
-        readOnlyQuestions.clear();
     }
 
     public QuestionWidget createWidgetFromPrompt(FormEntryPrompt prompt, PermissionsProvider permissionsProvider) {
         String appearance = Appearances.getSanitizedAppearanceHint(prompt);
 
-        // Check if this specific question should be read-only due to geofence auto-population
-        boolean questionReadOnly = readOnlyOverride;
-        String questionText = prompt.getQuestionText();
-        if (questionText != null && readOnlyQuestions.contains(questionText)) {
-            questionReadOnly = true;
-            timber.log.Timber.d("WidgetFactory: Question '%s' is in readOnlyQuestions set - marking as read-only", questionText);
-        } else if (questionText != null && !readOnlyQuestions.isEmpty()) {
-            timber.log.Timber.d("WidgetFactory: Question '%s' is NOT in readOnlyQuestions set (set has %d items)", questionText, readOnlyQuestions.size());
-        }
-
-        QuestionDetails questionDetails = new QuestionDetails(prompt, questionReadOnly);
+        QuestionDetails questionDetails = new QuestionDetails(prompt, readOnlyOverride);
 
         final QuestionWidget questionWidget;
         switch (prompt.getControlType()) {
