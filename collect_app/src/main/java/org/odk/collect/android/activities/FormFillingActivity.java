@@ -128,8 +128,6 @@ import org.odk.collect.android.formentry.saving.FormSaveViewModel;
 import org.odk.collect.android.formentry.saving.SaveAnswerFileErrorDialogFragment;
 import org.odk.collect.android.formentry.saving.SaveAnswerFileProgressDialogFragment;
 import org.odk.collect.android.formentry.saving.SaveFormProgressDialogFragment;
-import org.odk.collect.android.geofencing.GeofenceFormHelper;
-import org.odk.collect.android.geofencing.LocationValidationDialogFragment;
 import org.odk.collect.android.activities.LoginActivity;
 import org.odk.collect.android.authentication.UserRole;
 import org.odk.collect.android.formhierarchy.FormHierarchyActivity;
@@ -240,7 +238,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         AudioControllerView.SwipableParent, FormIndexAnimationHandler.Listener,
         DeleteRepeatDialogFragment.DeleteRepeatDialogCallback,
         SelectMinimalDialog.SelectMinimalDialogListener, CustomDatePickerDialog.DateChangeListener,
-        CustomTimePickerDialog.TimeChangeListener, LocationValidationDialogFragment.LocationValidationCallback {
+        CustomTimePickerDialog.TimeChangeListener {
 
     public static final String KEY_INSTANCES = "instances";
     public static final String KEY_SUCCESS = "success";
@@ -282,17 +280,6 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
     private boolean shownAlertDialogIsGroupRepeat;
 
     private FormLoaderTask formLoaderTask;
-
-    // Geofencing validation state
-    private boolean locationValidationOverridden = false;
-    private boolean pendingFormSave = false;
-    private boolean pendingFormSaveExit = false;
-    private boolean pendingFormSaveComplete = false;
-    private String pendingFormSaveName = null;
-    private boolean pendingFormSaveCurrent = false;
-
-    // Track auto-populated geofence fields for read-only enforcement
-    private final java.util.Set<String> autoPopulatedFields = new java.util.HashSet<>();
 
     private TextView nextButton;
     private TextView backButton;
@@ -418,7 +405,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 DialogFragmentUtils.showIfNotShowing(RecordingWarningDialogFragment.class, getSupportFragmentManager());
             } else {
                 QuitFormDialog.show(getActivity(), formSaveViewModel, formEntryViewModel, settingsProvider, () -> {
-                    validateLocationBeforeSave(true, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
+                    saveForm(true, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
                 });
             }
         }
@@ -516,7 +503,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
 
                     @Override
                     public void save() {
-                        validateLocationBeforeSave(false, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
+                        saveForm(false, InstancesDaoHelper.isInstanceComplete(getFormController()), null, true);
                     }
                 }
         );
@@ -685,9 +672,6 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         formSessionRepository.set(sessionId, formController, form, instance);
         AnalyticsUtils.setForm(formController);
         backgroundLocationViewModel.formFinishedLoading();
-
-        // Validate user location for state-level users
-        validateUserLocation();
     }
 
     private void setupFields(Bundle savedInstanceState) {
@@ -1138,9 +1122,6 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                             .getGroupsForCurrentIndex();
                     FormEntryPrompt[] prompts = formController.getQuestionPrompts();
 
-                    // Auto-populate geofence fields if location available
-                    autoPopulateGeofenceFields(formController, prompts);
-
                     odkView = createODKView(advancingPage, prompts, groups);
                     odkView.setWidgetValueChangedListener(this);
 
@@ -1195,7 +1176,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 odkViewLifecycle
         );
 
-        return new ODKView(this, prompts, groups, advancingPage, formSaveViewModel, waitingForDataRegistry, viewModelAudioPlayer, audioRecorder, formEntryViewModel, printerWidgetViewModel, internalRecordingRequester, externalAppRecordingRequester, audioHelperFactory.create(this), autoPopulatedFields);
+        return new ODKView(this, prompts, groups, advancingPage, formSaveViewModel, waitingForDataRegistry, viewModelAudioPlayer, audioRecorder, formEntryViewModel, printerWidgetViewModel, internalRecordingRequester, externalAppRecordingRequester, audioHelperFactory.create(this));
     }
 
     @Override
@@ -1254,7 +1235,7 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
                 this,
                 saveName,
                 formEndViewModel,
-                markAsFinalized -> validateLocationBeforeSave(true, markAsFinalized, saveName, false)
+                markAsFinalized -> saveForm(true, markAsFinalized, saveName, false)
         );
     }
 
@@ -1566,113 +1547,6 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
         alertDialog.setButton(BUTTON_POSITIVE, getString(org.odk.collect.strings.R.string.ok), errorListener);
         swipeHandler.setBeenSwiped(false);
         alertDialog.show();
-    }
-
-    /**
-     * Validates location before saving the form (geofencing check).
-     * Only validates if the form is being marked as complete.
-     */
-    private void validateLocationBeforeSave(boolean exit, boolean complete, String updatedSaveName, boolean current) {
-        // Store pending save parameters
-        pendingFormSave = true;
-        pendingFormSaveExit = exit;
-        pendingFormSaveComplete = complete;
-        pendingFormSaveName = updatedSaveName;
-        pendingFormSaveCurrent = current;
-
-        // If not finalizing (complete=false), skip validation
-        if (!complete) {
-            proceedWithFormSave();
-            return;
-        }
-
-        // If already overridden by admin, proceed
-        if (locationValidationOverridden) {
-            proceedWithFormSave();
-            return;
-        }
-
-        // Get current GPS location
-        final Location location = getCurrentLocation();
-        if (location == null) {
-            // No GPS available - show warning dialog
-            new MaterialAlertDialogBuilder(this)
-                    .setTitle("No GPS Location")
-                    .setMessage("Cannot validate location because GPS is unavailable. Continue without validation?")
-                    .setPositiveButton("Continue Anyway", (dialog, which) -> {
-                        proceedWithFormSave();
-                    })
-                    .setNegativeButton("Cancel", (dialog, which) -> {
-                        resetPendingSaveState();
-                    })
-                    .setCancelable(false)
-                    .show();
-            return;
-        }
-
-        // Run validation in background
-        new AsyncTask<Void, Void, GeofenceFormHelper.ValidationResult>() {
-            @Override
-            protected GeofenceFormHelper.ValidationResult doInBackground(Void... voids) {
-                MapPoint mapPoint = new MapPoint(location.getLatitude(), location.getLongitude());
-                return GeofenceFormHelper.INSTANCE.validateLocationForUserBlocking(
-                        FormFillingActivity.this,
-                        mapPoint
-                );
-            }
-
-            @Override
-            protected void onPostExecute(GeofenceFormHelper.ValidationResult result) {
-                handleValidationResult(result);
-            }
-        }.execute();
-    }
-
-    /**
-     * Handles the result of location validation.
-     */
-    private void handleValidationResult(GeofenceFormHelper.ValidationResult result) {
-        if (result.isValid()) {
-            // Validation passed - proceed with save
-            proceedWithFormSave();
-        } else {
-            // Validation failed - show error dialog
-            UserRole userRole = LoginActivity.getUserRole(this);
-            boolean canOverride = userRole == UserRole.ADMIN || userRole.isFederalLevel();
-
-            LocationValidationDialogFragment dialog = LocationValidationDialogFragment.newInstance(
-                    result,
-                    canOverride
-            );
-            dialog.show(getSupportFragmentManager(), "location_validation");
-        }
-    }
-
-    /**
-     * Proceeds with the actual form save after validation passes or is overridden.
-     */
-    private void proceedWithFormSave() {
-        if (pendingFormSave) {
-            saveForm(
-                    pendingFormSaveExit,
-                    pendingFormSaveComplete,
-                    pendingFormSaveName,
-                    pendingFormSaveCurrent
-            );
-            resetPendingSaveState();
-        }
-    }
-
-    /**
-     * Resets the pending save state after save completes or is cancelled.
-     */
-    private void resetPendingSaveState() {
-        pendingFormSave = false;
-        pendingFormSaveExit = false;
-        pendingFormSaveComplete = false;
-        pendingFormSaveName = null;
-        pendingFormSaveCurrent = false;
-        locationValidationOverridden = false;
     }
 
 
@@ -2304,341 +2178,6 @@ public class FormFillingActivity extends LocalizedActivity implements AnimationL
     @Override
     public void onRankingChanged(List<SelectChoice> items) {
         onDataChanged(items);
-    }
-
-
-    /**
-     * Get current GPS location from LocationManager
-     *
-     * @return Current Location or null if not available
-     */
-    @SuppressLint("MissingPermission")
-    private Location getCurrentLocation() {
-        try {
-            // Try to get last known location from fusedLocationClient first
-            if (fusedLocatonClient != null) {
-                Location location = fusedLocatonClient.getLastLocation();
-                if (location != null) {
-                    return location;
-                }
-            }
-
-            // Fallback to LocationManager
-            LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-            if (locationManager != null) {
-                // Try GPS provider first
-                Location gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                if (gpsLocation != null) {
-                    return gpsLocation;
-                }
-
-                // Try network provider as fallback
-                Location networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                if (networkLocation != null) {
-                    return networkLocation;
-                }
-            }
-        } catch (Exception e) {
-            Timber.e(e, "Error getting current location");
-        }
-
-        return null;
-    }
-
-    /**
-     * Auto-populate geofence-related form fields based on current GPS location
-     *
-     * @param formController The form controller
-     * @param prompts Array of form prompts to check for geofence fields
-     */
-    private void autoPopulateGeofenceFields(FormController formController, FormEntryPrompt[] prompts) {
-        if (prompts == null || prompts.length == 0) {
-            return;
-        }
-
-        // Don't clear autoPopulatedFields - we need to preserve them across page navigations
-        // The set persists for the entire form session to keep all auto-populated fields read-only
-
-        try {
-            // Get current GPS location
-            Location currentLocation = getCurrentLocation();
-            if (currentLocation == null) {
-                Timber.d("No GPS location available for auto-population");
-                return;
-            }
-
-            // Get geofence data for current location
-            MapPoint mapPoint = new MapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
-            GeofenceFormHelper.LocationFieldValues fieldValues =
-                GeofenceFormHelper.autoPopulateLocationFieldsBlocking(this, mapPoint);
-
-            if (!fieldValues.isWithinBoundaries()) {
-                Timber.d("Location is outside geofence boundaries, skipping auto-population");
-                return;
-            }
-
-            Timber.i("Auto-populating geofence fields for location:");
-            Timber.i("  State: %s", fieldValues.getState());
-            Timber.i("  LGA: %s", fieldValues.getLga());
-            Timber.i("  Strategic Catchment: %s", fieldValues.getStrategicCatchment());
-            Timber.i("  Micro Catchment: %s", fieldValues.getMicroCatchment());
-
-            // Loop through all prompts and populate matching fields
-            int populatedCount = 0;
-            for (FormEntryPrompt prompt : prompts) {
-                // Skip if field already has an answer
-                if (prompt.getAnswerText() != null && !prompt.getAnswerText().isEmpty()) {
-                    continue;
-                }
-
-                // Get the question text (label) which contains the field name
-                String questionText = prompt.getQuestionText();
-                if (questionText == null || questionText.isEmpty()) {
-                    continue;
-                }
-
-                // Get control type for debugging
-                int controlType = prompt.getControlType();
-                Timber.d("Checking field '%s' (type: %d)", questionText, controlType);
-
-                // Try to map this question to a geofence value
-                String value = GeofenceFormHelper.INSTANCE.mapFieldValue(questionText, fieldValues);
-
-                if (value != null && !value.isEmpty()) {
-                    try {
-                        IAnswerData answerData = null;
-
-                        // Check if this is a select question
-                        if (prompt.getSelectChoices() != null && prompt.getSelectChoices().size() > 0) {
-                            // This is a select list - find matching choice by value or label
-                            Timber.d("Field '%s' is a select list, searching for choice matching '%s'", questionText, value);
-
-                            SelectChoice matchingChoice = null;
-                            for (SelectChoice choice : prompt.getSelectChoices()) {
-                                String choiceValue = choice.getValue();
-                                String choiceLabel = prompt.getSelectChoiceText(choice);
-
-                                // Match by value or label (case-insensitive)
-                                if (choiceValue != null && choiceValue.equalsIgnoreCase(value)) {
-                                    matchingChoice = choice;
-                                    Timber.d("Found choice by value: %s = %s", choiceValue, choiceLabel);
-                                    break;
-                                } else if (choiceLabel != null && choiceLabel.equalsIgnoreCase(value)) {
-                                    matchingChoice = choice;
-                                    Timber.d("Found choice by label: %s = %s", choiceValue, choiceLabel);
-                                    break;
-                                }
-                            }
-
-                            if (matchingChoice != null) {
-                                // Create Selection with the matching choice
-                                Selection selection = new Selection(matchingChoice);
-                                answerData = new org.javarosa.core.model.data.SelectOneData(selection);
-                                Timber.d("Created SelectOneData for '%s'", questionText);
-                            } else {
-                                Timber.w("No matching choice found in select list for value '%s'", value);
-                            }
-                        } else {
-                            // This is a text field - use StringData
-                            answerData = new StringData(value);
-                            Timber.d("Created StringData for text field '%s'", questionText);
-                        }
-
-                        if (answerData != null) {
-                            // Save the answer to the form
-                            formController.saveAnswer(prompt.getIndex(), answerData);
-
-                            // Track this field as auto-populated (for read-only enforcement)
-                            // Only track State, Strategic Catchment, and Micro Catchment
-                            String normalizedName = questionText.trim().toLowerCase().replaceAll("\\s+", " ");
-                            if (normalizedName.contains("state") ||
-                                    normalizedName.contains("catchment")) {
-                                autoPopulatedFields.add(questionText);
-                                Timber.d("Marked field '%s' as auto-populated (will be read-only)", questionText);
-                            }
-
-                            populatedCount++;
-                            Timber.i("Auto-populated field '%s' with value '%s'", questionText, value);
-                        }
-                    } catch (Exception e) {
-                        Timber.e(e, "Failed to auto-populate field '%s'", questionText);
-                    }
-                }
-            }
-
-            if (populatedCount > 0) {
-                Timber.i("Successfully auto-populated %d geofence field(s)", populatedCount);
-
-                // Show toast with location information
-                StringBuilder locationInfo = new StringBuilder("📍 Location Detected:\n");
-
-                if (fieldValues.getState() != null) {
-                    locationInfo.append("State: ").append(fieldValues.getState()).append("\n");
-                }
-                if (fieldValues.getLga() != null) {
-                    locationInfo.append("LGA: ").append(fieldValues.getLga()).append("\n");
-                }
-                if (fieldValues.getStrategicCatchment() != null) {
-                    locationInfo.append("Strategic Catchment: ").append(fieldValues.getStrategicCatchment()).append("\n");
-                }
-                if (fieldValues.getMicroCatchment() != null) {
-                    locationInfo.append("Micro Catchment: ").append(fieldValues.getMicroCatchment());
-                }
-
-                final String toastMessage = locationInfo.toString().trim();
-                Timber.i("Showing location toast: %s", toastMessage);
-                runOnUiThread(() -> showLongToast(this, toastMessage));
-
-                // DEVELOPMENT: Uncomment below to show dialog on form field auto-populate
-                // showDevelopmentLocationDialog(currentLocation, fieldValues);
-            }
-
-        } catch (Exception e) {
-            Timber.e(e, "Error during geofence field auto-population");
-        }
-    }
-
-    /**
-     * Show development dialog with detailed location information
-     * DEVELOPMENT ONLY - Shows GPS coordinates and all detected geofence boundaries
-     *
-     * @param location Current GPS location
-     * @param fieldValues Detected geofence values
-     */
-    private void showDevelopmentLocationDialog(Location location, GeofenceFormHelper.LocationFieldValues fieldValues) {
-        if (location == null || fieldValues == null) {
-            return;
-        }
-
-        runOnUiThread(() -> {
-            try {
-                // Build detailed information message
-                StringBuilder message = new StringBuilder();
-
-                // GPS Coordinates
-                message.append("📍 GPS Coordinates:\n");
-                message.append(String.format("Latitude: %.6f\n", location.getLatitude()));
-                message.append(String.format("Longitude: %.6f\n", location.getLongitude()));
-                message.append(String.format("Accuracy: %.1f meters\n", location.getAccuracy()));
-                message.append("\n");
-
-                // Detected Boundaries
-                message.append("🗺️ Detected Boundaries:\n");
-                message.append("\n");
-
-                if (fieldValues.getState() != null) {
-                    message.append("State:\n");
-                    message.append("  ").append(fieldValues.getState()).append("\n\n");
-                } else {
-                    message.append("State: Not detected\n\n");
-                }
-
-                if (fieldValues.getLga() != null) {
-                    message.append("LGA:\n");
-                    message.append("  ").append(fieldValues.getLga()).append("\n\n");
-                } else {
-                    message.append("LGA: Not detected\n\n");
-                }
-
-                if (fieldValues.getStrategicCatchment() != null) {
-                    message.append("Strategic Catchment:\n");
-                    message.append("  ").append(fieldValues.getStrategicCatchment()).append("\n\n");
-                } else {
-                    message.append("Strategic Catchment: Not detected\n\n");
-                }
-
-                if (fieldValues.getMicroCatchment() != null) {
-                    message.append("Micro Catchment:\n");
-                    message.append("  ").append(fieldValues.getMicroCatchment()).append("\n");
-                } else {
-                    message.append("Micro Catchment: Not detected");
-                }
-
-                // Show dialog
-                new MaterialAlertDialogBuilder(this)
-                    .setTitle("🌍 Geofence Location Detected")
-                    .setMessage(message.toString())
-                    .setPositiveButton("OK", null)
-                    .setNeutralButton("Copy Coordinates", (dialog, which) -> {
-                        // Copy coordinates to clipboard for easy testing
-                        String coords = String.format("%.6f, %.6f",
-                            location.getLatitude(), location.getLongitude());
-
-                        android.content.ClipboardManager clipboard =
-                            (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                        android.content.ClipData clip =
-                            android.content.ClipData.newPlainText("GPS Coordinates", coords);
-                        clipboard.setPrimaryClip(clip);
-
-                        showShortToast(this, "Coordinates copied: " + coords);
-                    })
-                    .setCancelable(true)
-                    .show();
-
-                Timber.i("Development location dialog shown with coordinates: %.6f, %.6f",
-                    location.getLatitude(), location.getLongitude());
-
-            } catch (Exception e) {
-                Timber.e(e, "Error showing development location dialog");
-            }
-        });
-    }
-
-    /**
-     * Validate user location against role-based restrictions
-     * Shows dialog if state user is outside assigned boundaries
-     */
-    private void validateUserLocation() {
-        try {
-            // Get current GPS location
-            Location currentLocation = getCurrentLocation();
-            if (currentLocation == null) {
-                Timber.d("No GPS location available for validation");
-                return;
-            }
-
-            // Convert to MapPoint
-            final MapPoint mapPoint = new MapPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
-
-            // Run validation in background thread to avoid blocking UI
-            scheduler.immediate(
-                // Background task - perform validation
-                () -> {
-                    try {
-                        return GeofenceFormHelper.validateLocationForUserBlocking(this, mapPoint);
-                    } catch (Exception e) {
-                        Timber.e(e, "Error during location validation");
-                        return new GeofenceFormHelper.ValidationResult(
-                            false,
-                            "Error validating location: " + e.getMessage(),
-                            false
-                        );
-                    }
-                },
-                // Foreground callback - handle result on UI thread
-                result -> {
-                    if (!result.isValid()) {
-                        Timber.w("Location validation failed: %s", result.getErrorMessage());
-
-                        // Check if user can override
-                        boolean canOverride = GeofenceFormHelper.canOverrideLocationRestrictions(this);
-
-                        // Show validation dialog
-                        LocationValidationDialogFragment dialog =
-                            LocationValidationDialogFragment.Companion.newInstance(result, canOverride);
-
-                        if (!isFinishing() && !getSupportFragmentManager().isDestroyed()) {
-                            dialog.show(getSupportFragmentManager(), "LocationValidationDialog");
-                        }
-                    } else {
-                        Timber.i("Location validation passed");
-                    }
-                }
-            );
-
-        } catch (Exception e) {
-            Timber.e(e, "Error initiating location validation");
-        }
     }
 
     /*
