@@ -14,7 +14,6 @@ import org.odk.collect.android.authentication.AuthResult
 import org.odk.collect.android.authentication.UserData
 import org.odk.collect.android.authentication.UserRole
 import org.odk.collect.android.databinding.LoginActivityBinding
-import org.odk.collect.android.geofencing.GeoFenceManager
 import org.odk.collect.android.mainmenu.MainMenuActivity
 import org.odk.collect.androidshared.ui.ToastUtils
 import timber.log.Timber
@@ -241,124 +240,7 @@ class LoginActivity : AppCompatActivity() {
         Timber.d("User session saved: ${userData.username}, role: ${userData.role}, state: ${userData.state}, isGuest: $isGuest")
 
         // Load geofences for the user's state after successful login
-        loadGeofencesForUser(userData)
-    }
-
-    private fun loadGeofencesForUser(userData: UserData) {
-        lifecycleScope.launch {
-            var loadingDialog: androidx.appcompat.app.AlertDialog? = null
-
-            try {
-                Timber.d("Loading geofences for user: ${userData.username}, state: ${userData.state}")
-
-                val geoFenceManager = GeoFenceManager.getInstance(this@LoginActivity)
-
-                // Determine which state(s) to load based on user role
-                when (userData.role) {
-                    UserRole.STATE_ADMIN, UserRole.STATE_USER -> {
-                        // Load only user's assigned state
-                        if (userData.state.isNotEmpty()) {
-                            Timber.d("State user detected, loading state: ${userData.state}")
-
-                            // Show loading dialog
-                            loadingDialog = showGeofenceLoadingDialog(userData.state)
-
-                            // Load single state
-                            val success = geoFenceManager.loadGeofences(userData.state)
-
-                            // Hide loading dialog
-                            loadingDialog?.dismiss()
-
-                            if (success) {
-                                val stats = geoFenceManager.getCacheStats()
-                                Timber.d("Geofences loaded successfully: ${stats.totalPolygons} polygons")
-                                ToastUtils.showShortToast(this@LoginActivity,
-                                    "Loaded ${stats.totalPolygons} boundaries for ${userData.state}")
-                            } else {
-                                Timber.w("Failed to load geofences for ${userData.state}")
-                                ToastUtils.showShortToast(this@LoginActivity,
-                                    "Warning: Failed to load boundary data")
-                            }
-
-                            // Navigate to app
-                            navigateToApp()
-                            return@launch
-                        } else {
-                            Timber.w("State user has no state assigned, skipping geofence loading")
-                            navigateToApp()
-                            return@launch
-                        }
-                    }
-                    UserRole.FEDERAL_ADMIN, UserRole.ADMIN -> {
-                        // Federal admin users load ALL states
-                        Timber.d("Federal admin user detected, loading all states")
-
-                        // Show loading dialog
-                        loadingDialog = androidx.appcompat.app.AlertDialog.Builder(this@LoginActivity)
-                            .setTitle("Loading Geofence Data")
-                            .setMessage("Loading boundary data for all states...\n\nThis may take a moment.")
-                            .setCancelable(false)
-                            .create()
-                        loadingDialog?.show()
-
-                        // Load all states (null = load all)
-                        val success = geoFenceManager.loadGeofences(null)
-
-                        // Hide loading dialog
-                        loadingDialog?.dismiss()
-
-                        if (success) {
-                            val stats = geoFenceManager.getCacheStats()
-                            Timber.d("All geofences loaded successfully: ${stats.totalPolygons} polygons for ${stats.loadedStates.size} states")
-                            ToastUtils.showShortToast(this@LoginActivity,
-                                "Loaded ${stats.totalPolygons} boundaries for all states")
-                        } else {
-                            Timber.w("Failed to load some geofences")
-                            ToastUtils.showShortToast(this@LoginActivity,
-                                "Warning: Failed to load some boundary data")
-                        }
-
-                        // Navigate to app
-                        navigateToApp()
-                        return@launch
-                    }
-                    UserRole.FEDERAL_USER, UserRole.TEST_USER -> {
-                        // Federal users don't need to preload
-                        // They can load on-demand when needed
-                        Timber.d("Federal user detected, skipping preload")
-                        navigateToApp()
-                        return@launch
-                    }
-                    UserRole.UNKNOWN -> {
-                        Timber.w("Unknown user role, skipping geofence loading")
-                        navigateToApp()
-                        return@launch
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Error loading geofences: ${e.message}")
-
-                // Hide loading dialog on error
-                loadingDialog?.dismiss()
-
-                // Show error but allow navigation
-                ToastUtils.showShortToast(this@LoginActivity,
-                    "Error loading boundaries: ${e.message}")
-
-                navigateToApp()
-            }
-        }
-    }
-
-    private fun showGeofenceLoadingDialog(state: String): androidx.appcompat.app.AlertDialog {
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Loading Geofence Data")
-            .setMessage("Loading boundary data for $state...\n\nPlease wait.")
-            .setCancelable(false)
-            .create()
-
-        dialog.show()
-        return dialog
+        navigateToApp()
     }
 
     private fun performAnonymousLogin() {

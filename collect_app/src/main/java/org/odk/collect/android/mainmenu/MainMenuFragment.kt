@@ -32,9 +32,6 @@ import org.odk.collect.android.application.MapboxClassInstanceCreator
 import org.odk.collect.android.databinding.MainMenuBinding
 import org.odk.collect.android.formlists.blankformlist.BlankFormListActivity
 import org.odk.collect.android.formmanagement.FormFillingIntentFactory
-import org.odk.collect.android.geofencing.GeoFenceManager
-import org.odk.collect.android.geofencing.GeofenceFormHelper
-import org.odk.collect.android.geofencing.GeofenceType
 import org.odk.collect.android.instancemanagement.send.InstanceUploaderListActivity
 import org.odk.collect.android.projects.ProjectIconView
 import org.odk.collect.android.projects.ProjectSettingsDialog
@@ -56,7 +53,7 @@ class MainMenuFragment(
     private val viewModelFactory: ViewModelProvider.Factory,
     private val settingsProvider: SettingsProvider,
     private val permissionsProvider: PermissionsProvider
-) : Fragment(), LocationListener {
+) : Fragment() {
 
     private lateinit var mainMenuViewModel: MainMenuViewModel
     private lateinit var currentProjectViewModel: CurrentProjectViewModel
@@ -67,11 +64,6 @@ class MainMenuFragment(
             val uri = result.data?.data
             mainMenuViewModel.setSavedForm(uri)
         }
-
-    private var locationManager: LocationManager? = null
-    private var geofenceStatusMenuItem: MenuItem? = null
-    private var geofenceStatusTextView: android.widget.TextView? = null
-    private var currentLocation: Location? = null
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -139,15 +131,10 @@ class MainMenuFragment(
         val binding = MainMenuBinding.bind(requireView())
         setButtonsVisibility(binding)
         manageGoogleDriveDeprecationBanner(binding)
-
-        // Start location tracking for geofence status
-        startLocationTracking()
     }
 
     override fun onPause() {
         super.onPause()
-        // Stop location tracking to save battery
-        stopLocationTracking()
     }
 
     override fun onPrepareOptionsMenu(menu: Menu) {
@@ -158,13 +145,6 @@ class MainMenuFragment(
           //  setOnClickListener { onOptionsItemSelected(projectsMenuItem) }
             contentDescription = getString(string.projects)
         }
-
-        // Save reference to geofence status menu item and custom action view
-        geofenceStatusMenuItem = menu.findItem(org.odk.collect.android.R.id.geofence_status)
-        geofenceStatusMenuItem?.actionView?.let { actionView ->
-            geofenceStatusTextView = actionView.findViewById(org.odk.collect.android.R.id.geofence_status_text)
-        }
-        updateGeofenceStatus()
     }
 
     override fun onCreateOptionsMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -220,15 +200,9 @@ class MainMenuFragment(
     private fun initButtons(binding: MainMenuBinding) {
         binding.enterData.setOnClickListener {
             ActionRegister.actionDetected()
-
-            // DEVELOPMENT: Show location dialog before opening form
-            // Dialog will launch form list after user clicks OK
-            showDevelopmentLocationDialog {
-                // Launch form list after dialog is dismissed
-                formEntryFlowLauncher.launch(
-                    Intent(requireActivity(), BlankFormListActivity::class.java)
-                )
-            }
+            formEntryFlowLauncher.launch(
+                Intent(requireActivity(), BlankFormListActivity::class.java)
+            )
         }
 
         binding.reviewData.setOnClickListener {
@@ -326,318 +300,6 @@ class MainMenuFragment(
             }
         } else {
             binding.googleDriveDeprecationBanner.root.visibility = View.GONE
-        }
-    }
-
-    // Location tracking for geofence status
-    private fun startLocationTracking() {
-        try {
-            locationManager = requireContext().getSystemService(Context.LOCATION_SERVICE) as LocationManager
-
-            // Check location permission
-            if (ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                Timber.d("Location permission not granted, requesting permissions")
-                requestLocationPermissionsForGeofencing()
-                return
-            }
-
-            // Check if geofences need to be loaded
-            lifecycleScope.launch {
-                try {
-                    val geoFenceManager = GeoFenceManager.getInstance(requireContext())
-                    val userState = LoginActivity.getUserState(requireContext())
-
-                    // Only load if user has a state and it's not already loaded
-                    if (userState.isNotEmpty() && !geoFenceManager.isStateLoaded(userState)) {
-                        Timber.d("Loading geofences for user's state: $userState")
-                        geoFenceManager.loadGeofences(userState)
-                        Timber.i("Geofences loaded for $userState")
-                    } else if (userState.isNotEmpty()) {
-                        Timber.d("Geofences already loaded for $userState")
-                    } else {
-                        Timber.d("No user state assigned, skipping geofence loading")
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "Error loading geofences: ${e.message}")
-                }
-            }
-
-            // Request location updates every 10 seconds
-            locationManager?.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                10000L, // 10 seconds
-                10f, // 10 meters
-                this
-            )
-
-            // Try to get last known location immediately
-            val lastLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            if (lastLocation != null) {
-                onLocationChanged(lastLocation)
-            }
-
-            Timber.d("Location tracking started for geofence status")
-        } catch (e: Exception) {
-            Timber.e(e, "Error starting location tracking: ${e.message}")
-        }
-    }
-
-    private fun stopLocationTracking() {
-        try {
-            locationManager?.removeUpdates(this)
-            Timber.d("Location tracking stopped")
-        } catch (e: Exception) {
-            Timber.e(e, "Error stopping location tracking: ${e.message}")
-        }
-    }
-
-    private fun requestLocationPermissionsForGeofencing() {
-        permissionsProvider.requestEnabledLocationPermissions(
-            requireActivity(),
-            object : org.odk.collect.permissions.PermissionListener {
-                override fun granted() {
-                    Timber.i("Location permissions granted, starting geofence tracking")
-                    startLocationTracking()
-                }
-
-                override fun denied() {
-                    Timber.w("Location permissions denied, geofence tracking disabled")
-                }
-            }
-        )
-    }
-
-    // LocationListener implementation
-    override fun onLocationChanged(location: Location) {
-        currentLocation = location
-        Timber.d("Location changed: ${location.latitude}, ${location.longitude}")
-        updateGeofenceStatus()
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
-        // Not used
-    }
-
-    override fun onProviderEnabled(provider: String) {
-        Timber.d("Location provider enabled: $provider")
-    }
-
-    override fun onProviderDisabled(provider: String) {
-        Timber.d("Location provider disabled: $provider")
-    }
-
-    private fun updateGeofenceStatus() {
-        val location = currentLocation
-        val textView = geofenceStatusTextView
-
-        if (textView == null) {
-            return
-        }
-
-        if (location == null) {
-            textView.text = "Location: Unknown"
-            return
-        }
-
-        // Query geofences in background
-        lifecycleScope.launch {
-            try {
-                val geoFenceManager = GeoFenceManager.getInstance(requireContext())
-                val point = MapPoint(location.latitude, location.longitude)
-
-                Timber.d("GPS Location: lat=${location.latitude}, lon=${location.longitude}")
-                Timber.d("MapPoint created: lat=${point.latitude}, lon=${point.longitude}")
-
-                val cacheStats = geoFenceManager.getCacheStats()
-                Timber.d("Cache stats: ${cacheStats.totalPolygons} polygons, ${cacheStats.loadedStates.size} states")
-
-                // Check if geofences are loaded
-                if (cacheStats.totalPolygons == 0) {
-                    Timber.w("Geofences not loaded yet, skipping validation")
-                    textView.text = "Loading geofences..."
-                    return@launch
-                }
-
-                // Get containing polygons
-                val polygons = geoFenceManager.getContainingPolygons(point)
-
-                Timber.d("Found ${polygons.size} containing polygons")
-                polygons.forEach { polygon ->
-                    Timber.d("  - ${polygon.name} (${polygon.type}) in ${polygon.state}")
-                }
-
-                if (polygons.isEmpty()) {
-                    textView.text = "Outside"
-                } else {
-                    // Find state and catchment
-                    val state = polygons.find { it.type == GeofenceType.STATE }
-                    val catchment = polygons.find { it.type == GeofenceType.STRATEGIC_CATCHMENT }
-
-                    val statusText = buildString {
-                        if (state != null) {
-                            append(state.name)
-                        }
-                        if (catchment != null) {
-                            if (isNotEmpty()) append(" | ")
-                            append(catchment.name)
-                        }
-                    }
-
-                    // Display format: "Kaduna" or "Kaduna | Hadejia"
-                    textView.text = if (statusText.isEmpty()) {
-                        "Inside"
-                    } else {
-                        statusText
-                    }
-                }
-
-                Timber.d("Geofence status updated: ${textView.text}")
-            } catch (e: Exception) {
-                Timber.e(e, "Error updating geofence status: ${e.message}")
-                textView.text = "Error"
-            }
-        }
-    }
-
-    /**
-     * DEVELOPMENT ONLY: Show location dialog with GPS coordinates and detected boundaries
-     * TODO: Remove this method in production build or wrap with BuildConfig.DEBUG
-     *
-     * @param onDismiss Callback to execute after dialog is dismissed
-     */
-    private fun showDevelopmentLocationDialog(onDismiss: () -> Unit) {
-        // Check if geofences are loaded
-        val geoFenceManager = GeoFenceManager.getInstance(requireContext())
-        val userState = LoginActivity.getUserState(requireContext())
-
-        if (userState.isNotEmpty() && !geoFenceManager.isStateLoaded(userState)) {
-            // Geofences not loaded yet - show warning
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("⚠️ Geofence Data Not Loaded")
-                .setMessage("Boundary data for $userState is not loaded yet.\n\nPlease wait a moment and try again, or restart the app.")
-                .setPositiveButton("OK") { _, _ -> onDismiss() }
-                .setCancelable(false)
-                .show()
-            return
-        }
-
-        val location = currentLocation
-        if (location == null) {
-            // No GPS available
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("⚠️ No GPS Location")
-                .setMessage("GPS location is not available.\n\nPlease ensure:\n• Location services are enabled\n• App has location permission\n• You are outdoors with clear sky view")
-                .setPositiveButton("OK") { _, _ ->
-                    onDismiss()  // Call callback when OK is clicked
-                }
-                .setCancelable(false)  // Prevent dismissing by tapping outside
-                .show()
-            return
-        }
-
-        // Query geofences in background
-        lifecycleScope.launch {
-            try {
-                val geoFenceManager = GeoFenceManager.getInstance(requireContext())
-                val point = MapPoint(location.latitude, location.longitude)
-
-                // Log cache stats to help debug loading issues
-                val stats = geoFenceManager.getCacheStats()
-                Timber.d("Cache stats: ${stats.loadedStates.size} states loaded, ${stats.totalPolygons} total polygons")
-                stats.loadedStates.forEach { state ->
-                    val statePolys = geoFenceManager.getPolygonsForState(state, GeofenceType.STATE).size
-                    val lgaPolys = geoFenceManager.getPolygonsForState(state, GeofenceType.LGA).size
-                    val scPolys = geoFenceManager.getPolygonsForState(state, GeofenceType.STRATEGIC_CATCHMENT).size
-                    val mcPolys = geoFenceManager.getPolygonsForState(state, GeofenceType.MICRO_CATCHMENT).size
-                    Timber.d("  $state: STATE=$statePolys, LGA=$lgaPolys, SC=$scPolys, MC=$mcPolys")
-                }
-
-                // Get containing polygons
-                val polygons = geoFenceManager.getContainingPolygons(point)
-
-                // Get field values
-                val fieldValues = GeofenceFormHelper.autoPopulateLocationFieldsBlocking(
-                    requireContext(),
-                    point
-                )
-
-                // Build dialog message
-                val message = buildString {
-                    append("📍 GPS Coordinates:\n")
-                    append("Latitude: ${String.format("%.6f", location.latitude)}\n")
-                    append("Longitude: ${String.format("%.6f", location.longitude)}\n")
-                    append("Accuracy: ${String.format("%.1f", location.accuracy)} meters\n")
-                    append("\n")
-
-                    append("🗺️ Detected Boundaries:\n")
-                    append("\n")
-
-                    if (fieldValues.isWithinBoundaries) {
-                        append("State:\n")
-                        append("  ${fieldValues.state ?: "Not detected"}\n\n")
-
-                        append("LGA:\n")
-                        append("  ${fieldValues.lga ?: "Not detected"}\n\n")
-
-                        append("Strategic Catchment:\n")
-                        append("  ${fieldValues.strategicCatchment ?: "Not detected"}\n\n")
-
-                        append("Micro Catchment:\n")
-                        append("  ${fieldValues.microCatchment ?: "Not detected"}\n")
-                    } else {
-                        append("❌ Location is outside all mapped boundaries\n")
-                        append("\n")
-                        append("Error: ${fieldValues.errorMessage ?: "Unknown error"}")
-                    }
-
-                    append("\n\n")
-                    append("📊 Total polygons found: ${polygons.size}")
-                }
-
-                // Show dialog on UI thread
-                androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    .setTitle("🌍 Geofence Location Info")
-                    .setMessage(message)
-                    .setPositiveButton("OK") { _, _ ->
-                        onDismiss()  // Call callback when OK is clicked
-                    }
-                    .setNeutralButton("Copy Coordinates") { dialog, _ ->
-                        // Copy coordinates to clipboard
-                        val coords = String.format("%.6f, %.6f",
-                            location.latitude, location.longitude)
-
-                        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE)
-                            as android.content.ClipboardManager
-                        val clip = android.content.ClipData.newPlainText("GPS Coordinates", coords)
-                        clipboard.setPrimaryClip(clip)
-
-                        Toast.makeText(requireContext(),
-                            "Coordinates copied: $coords",
-                            Toast.LENGTH_SHORT).show()
-
-                        // Don't dismiss dialog - user might want to review info again
-                    }
-                    .setCancelable(false)  // Prevent dismissing by tapping outside
-                    .show()
-
-                Timber.i("Development location dialog shown: lat=${location.latitude}, lon=${location.longitude}")
-
-            } catch (e: Exception) {
-                Timber.e(e, "Error showing development location dialog")
-                androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                    .setTitle("❌ Error")
-                    .setMessage("Error getting location information:\n\n${e.message}")
-                    .setPositiveButton("OK") { _, _ ->
-                        onDismiss()  // Call callback even on error
-                    }
-                    .setCancelable(false)
-                    .show()
-            }
         }
     }
 }
