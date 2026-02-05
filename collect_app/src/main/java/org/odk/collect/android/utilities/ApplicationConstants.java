@@ -33,6 +33,7 @@ public class ApplicationConstants {
         public static final String PASSWORD = "PASSWORD";
         public static final String URL = "URL";
         public static final String DELETE_INSTANCE_AFTER_SUBMISSION = "DELETE_INSTANCE_AFTER_SUBMISSION";
+        public static final String SESSION_DATA_URI = "SESSION_DATA_URI";
     }
 
     public abstract static class FormModes {

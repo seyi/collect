@@ -53,3 +53,4 @@ robolectric-deps/
 **/robolectric-deps.properties
 
 .local-m2
+EXTERNAL_DATA_DESIGN_REVIEW.md

@@ -54,10 +54,8 @@ import org.javarosa.form.api.FormEntryPrompt;
 import org.odk.collect.android.R;
 import org.odk.collect.android.activities.FormFillingActivity;
 import org.odk.collect.android.application.Collect;
-import org.odk.collect.android.audio.AudioHelper;
-import org.odk.collect.android.exception.ExternalParamsException;
-import org.odk.collect.android.exception.JavaRosaException;
 import org.odk.collect.android.dynamicpreload.ExternalAppsUtils;
+import org.odk.collect.android.dynamicpreload.SessionDataSQLiteOpenHelper;
 import org.odk.collect.android.formentry.media.PromptAutoplayer;
 import org.odk.collect.android.javarosawrapper.FormController;
 import org.odk.collect.android.listeners.WidgetValueChangedListener;
@@ -114,6 +112,7 @@ public class ODKView extends SwipeHandler.View implements OnLongClickListener, W
     private final LinearLayout.LayoutParams layout;
     private final ArrayList<QuestionWidget> widgets;
     private final AudioHelper audioHelper;
+    private final Map<String, String> sessionData;
 
     private WidgetValueChangedListener widgetValueChangedListener;
 
@@ -161,6 +160,10 @@ public class ODKView extends SwipeHandler.View implements OnLongClickListener, W
         getComponent(context).inject(this);
         this.audioHelper = audioHelper;
         inflate(getContext(), R.layout.odk_view, this); // keep in an xml file to enable the vertical scrollbar
+
+        // handle session data
+        SessionDataSQLiteOpenHelper dbHelper = new SessionDataSQLiteOpenHelper(context);
+        this.sessionData = dbHelper.getSessionData();
 
         // when the grouped fields are populated by an external app, this will get true.
         boolean readOnlyOverride = false;
@@ -322,7 +325,22 @@ public class ODKView extends SwipeHandler.View implements OnLongClickListener, W
      * Note: if the given question is of an unsupported type, a text widget will be created.
      */
     private QuestionWidget configureWidgetForQuestion(FormEntryPrompt question) {
+        String questionName = question.getFormElement().getBind().getReference().getNameLast();
+        if (sessionData.containsKey(questionName)) {
+            String value = sessionData.get(questionName);
+            try {
+                formController.saveAnswer(question.getIndex(), ExternalAppsUtils.asStringData(value));
+            } catch (JavaRosaException e) {
+                Timber.e(e);
+            }
+        }
+
         QuestionWidget qw = widgetFactory.createWidgetFromPrompt(question, permissionsProvider);
+
+        if (sessionData.containsKey(questionName)) {
+            qw.setEnabled(false);
+        }
+
         qw.setOnLongClickListener(this);
         qw.setValueChangedListener(this);
 

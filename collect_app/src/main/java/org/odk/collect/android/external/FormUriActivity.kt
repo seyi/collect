@@ -17,6 +17,7 @@ import org.odk.collect.analytics.Analytics
 import org.odk.collect.android.R
 import org.odk.collect.android.activities.FormFillingActivity
 import org.odk.collect.android.analytics.AnalyticsEvents
+import org.odk.collect.android.dynamicpreload.SessionDataSQLiteOpenHelper
 import org.odk.collect.android.injection.DaggerUtils
 import org.odk.collect.android.instancemanagement.InstanceDeleter
 import org.odk.collect.android.instancemanagement.canBeEdited
@@ -30,14 +31,19 @@ import org.odk.collect.android.utilities.InstancesRepositoryProvider
 import org.odk.collect.android.utilities.SavepointsRepositoryProvider
 import org.odk.collect.async.Scheduler
 import org.odk.collect.forms.savepoints.Savepoint
+import org.odk.collect.projects.Project
 import org.odk.collect.projects.ProjectsRepository
 import org.odk.collect.settings.SettingsProvider
 import org.odk.collect.strings.R.string
 import org.odk.collect.strings.localization.LocalizedActivity
 import java.io.File
+import java.io.InputStream
+import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
+import com.univocity.parsers.csv.CsvParser
+import com.univocity.parsers.csv.CsvParserSettings
 
 /**
  * This class serves as a firewall for starting form filling. It should be used to do that
@@ -106,11 +112,42 @@ class FormUriActivity : LocalizedActivity() {
             return
         }
 
+        // Handle session data if provided
+        intent.getStringExtra(ApplicationConstants.BundleKeys.SESSION_DATA_URI)?.let { uriString ->
+            try {
+                val csvUri = Uri.parse(uriString)
+                ingestSessionData(csvUri)
+            } catch (e: Exception) {
+                // Log error but continue
+            }
+        }
+
         formUriViewModel.formInspectionResult.observe(this) {
             when (it) {
                 is FormInspectionResult.Error -> displayErrorDialog(it.error)
                 is FormInspectionResult.Savepoint -> displaySavePointRecoveryDialog(it.savepoint)
                 is FormInspectionResult.Valid -> startForm(intent.data!!)
+            }
+        }
+    }
+
+    private fun ingestSessionData(uri: Uri) {
+        val inputStream: InputStream? = contentResolver.openInputStream(uri)
+        if (inputStream != null) {
+            val settings = CsvParserSettings().apply {
+                isHeaderExtractionEnabled = true
+                isLineSeparatorDetectionEnabled = true
+            }
+            val parser = CsvParser(settings)
+            val allRows = parser.parseAll(InputStreamReader(inputStream))
+            val headers = parser.context.headers()
+
+            if (headers != null && allRows.isNotEmpty()) {
+                val firstRow = allRows[0]
+                val dataMap = headers.zip(firstRow).toMap()
+
+                val dbHelper = SessionDataSQLiteOpenHelper(this)
+                dbHelper.saveSessionData(dataMap)
             }
         }
     }
